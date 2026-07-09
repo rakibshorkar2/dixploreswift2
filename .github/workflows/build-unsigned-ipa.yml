@@ -25,12 +25,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Diagnostic - OS, Xcode & SDK Info
         run: |
+          echo "=== OS Info ==="
+          sw_vers
+          echo ""
+          echo "=== Xcode Versions Available ==="
+          ls /Applications/ | grep -i xcode
+          echo ""
+          echo "=== Selected Xcode ==="
           XCODE_APP=$(ls /Applications/ | grep -i xcode | sort -r | head -1)
           echo "Using: $XCODE_APP"
           sudo xcode-select -s "/Applications/$XCODE_APP/Contents/Developer"
           xcodebuild -version
+          echo ""
+          echo "=== SDKs Available ==="
+          xcodebuild -showsdks
+          echo ""
+          echo "=== Swift Version ==="
+          swift --version
+          echo ""
+          echo "=== Runner Info ==="
+          uname -a
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -53,36 +69,20 @@ jobs:
             archive
 
       - name: Create unsigned IPA
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          mkdir -p "${{ runner.temp }}/Payload"
-          APP_PATH="${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive/Products/Applications/${{ env.PROJECT_NAME }}.app"
-          if [ -d "$APP_PATH" ]; then
-            cp -R "$APP_PATH" "${{ runner.temp }}/Payload/"
-            cd "${{ runner.temp }}"
-            zip -qr "${{ env.PROJECT_NAME }}.ipa" Payload/
-            echo "IPA created at: ${{ runner.temp }}/${{ env.PROJECT_NAME }}.ipa"
-          else
-            echo "App not found at expected path, searching..."
-            find "${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive" -name "*.app" -type d
-            # Try alternative approach
-            xcodebuild -exportArchive \
-              -archivePath "${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive" \
-              -exportPath "${{ runner.temp }}/${{ env.PROJECT_NAME }}" \
-              -exportWithoutSigning \
-              -exportOptionsPlist /dev/stdin <<< '<?xml version="1.0" encoding="UTF-8"?>
-              <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-              <plist version="1.0"><dict>
-                <key>method</key><string>release</string>
-                <key>signingStyle</key><string>manual</string>
-                <key>signingCertificate</key><string>-</string>
-                <key>provisioningProfile</key><string></string>
-                <key>stripSwiftSymbols</key><false/>
-                <key>generateAssetPackManifest</key><false/>
-                <key>compileBitcode</key><false/>
-                <key>uploadSymbols</key><false/>
-              </dict></plist>'
+          ARCHIVE="${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive"
+          APP_PATH=$(find "$ARCHIVE" -name "*.app" -type d -maxdepth 4 | head -1)
+          echo "App found at: $APP_PATH"
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: .app not found in archive!"
+            find "$ARCHIVE" -maxdepth 5 -type d | head -20
+            exit 1
           fi
+          mkdir -p "${{ runner.temp }}/Payload"
+          cp -R "$APP_PATH" "${{ runner.temp }}/Payload/"
+          cd "${{ runner.temp }}"
+          zip -qr "${{ env.PROJECT_NAME }}.ipa" Payload/
+          echo "IPA created: ${{ runner.temp }}/${{ env.PROJECT_NAME }}.ipa"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4

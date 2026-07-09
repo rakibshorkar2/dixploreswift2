@@ -10,29 +10,26 @@ final class DownloadManager: NSObject, ObservableObject {
     @Published var activeDownloads: Int = 0
     @Published var completedDownloads: Int = 0
     @Published var totalBytesDownloaded: Int64 = 0
+    @Published var totalDownloadSpeed: Double = 0
+    @Published var isDownloading: Bool = false
 
-    private var urlSession: URLSession!
-    private var backgroundSession: URLSession!
+    private var foregroundSession: URLSession!
     private var ongoingDownloads: [UUID: URLSessionDownloadTask] = [:]
+    private var progressTimers: [UUID: Date] = [:]
+    private var lastBytes: [UUID: Int64] = [:]
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let tasksKey = "saved_download_tasks"
+    private let maxConcurrentDownloads = 3
+    private var speedUpdateTimer: Timer?
 
     private override init() {
         super.init()
-        let config = URLSessionConfiguration.background(withIdentifier: "com.dirxplore.background")
-        config.isDiscretionary = false
-        config.sessionSendsLaunchEvents = true
-        config.shouldUseExtendedBackgroundIdleMode = true
+        let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
         config.timeoutIntervalForResource = 86400
-
-        let foregroundConfig = URLSessionConfiguration.default
-        foregroundConfig.waitsForConnectivity = true
-
-        self.urlSession = URLSession(configuration: foregroundConfig, delegate: nil, delegateQueue: nil)
-        self.backgroundSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
-
+        config.httpMaximumConnectionsPerHost = maxConcurrentDownloads
+        self.foregroundSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
         loadTasks()
     }
 
@@ -43,31 +40,31 @@ final class DownloadManager: NSObject, ObservableObject {
         config.shouldUseExtendedBackgroundIdleMode = true
         config.waitsForConnectivity = true
         config.timeoutIntervalForResource = 86400
-        self.backgroundSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+        _ = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
     }
 
     private func loadTasks() {
         guard let data = UserDefaults.standard.data(forKey: tasksKey),
               let savedTasks = try? decoder.decode([DownloadTask].self, from: data) else { return }
         tasks = savedTasks
-        activeDownloads = tasks.filter { $0.status == .downloading || $0.status == .queued }.count
-        completedDownloads = tasks.filter { $0.status == .completed }.count
-        totalBytesDownloaded = tasks.filter { $0.status == .completed }.reduce(0) { $0 + $1.fileSize }
+        refreshCounts()
     }
 
     private func saveTasks() {
         guard let data = try? encoder.encode(tasks) else { return }
         UserDefaults.standard.set(data, forKey: tasksKey)
-        updateCounts()
+        refreshCounts()
     }
 
-    private func updateCounts() {
-        activeDownloads = tasks.filter { $0.status == .downloading || $0.status == .queued }.count
+    private func refreshCounts() {
+        let active = tasks.filter { $0.status == .downloading || $0.status == .queued }
+        activeDownloads = active.count
         completedDownloads = tasks.filter { $0.status == .completed }.count
         totalBytesDownloaded = tasks.filter { $0.status == .completed }.reduce(0) { $0 + $1.fileSize }
+        isDownloading = active.contains { $0.status == .downloading }
     }
 
-    func addTask(url: URL, fileName: String? = nil, sourceType: LinkSourceType = .direct) {
+    func addTask(url: URL, fileName: String? = nil, sourceType: LinkSourceType = .direct, priority: Int = 0, category: String? = nil) {
         let task = DownloadTask(
             id: UUID(),
             url: url,
@@ -77,149 +74,217 @@ final class DownloadManager: NSObject, ObservableObject {
             status: .queued,
             progress: 0,
             startDate: Date(),
-            sourceType: sourceType
+            sourceType: sourceType,
+            downloadSpeed: 0,
+            retryCount: 0,
+            priority: priority,
+            category: category
         )
         tasks.insert(task, at: 0)
         saveTasks()
-        startDownload(task)
+        processQueue()
     }
 
-    func startDownload(_ task: DownloadTask) {
-        updateTaskStatus(task.id, status: .downloading)
-        let request = URLRequest(url: task.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+    func addBatch(urls: [URL], sourceType: LinkSourceType = .direct) {
+        for url in urls {
+            let task = DownloadTask(
+                id: UUID(),
+                url: url,
+                fileName: url.lastPathComponent,
+                fileSize: 0,
+                downloadedBytes: 0,
+                status: .queued,
+                progress: 0,
+                startDate: Date(),
+                sourceType: sourceType,
+                downloadSpeed: 0,
+                retryCount: 0,
+                priority: 0,
+                category: "Batch"
+            )
+            tasks.insert(task, at: 0)
+        }
+        saveTasks()
+        processQueue()
+    }
 
-        Task {
-            do {
-                let (localURL, response) = try await urlSession.download(for: request)
-                let fileSize = response.expectedContentLength
-                let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-                let destinationURL = documentsDir.appendingPathComponent(task.fileName)
+    private func processQueue() {
+        let activeCount = tasks.filter { $0.status == .downloading }.count
+        let maxToStart = max(0, maxConcurrentDownloads - activeCount)
+        let queued = tasks
+            .filter { $0.status == .queued }
+            .sorted { $0.priority > $1.priority }
+            .prefix(maxToStart)
 
-                if FileManager.default.fileExists(atPath: destinationURL.path) {
-                    try FileManager.default.removeItem(at: destinationURL)
-                }
-                try FileManager.default.moveItem(at: localURL, to: destinationURL)
+        for task in queued {
+            startDownload(task)
+        }
+    }
 
-                var updated = task
-                updated.fileSize = max(fileSize, 0)
-                updated.downloadedBytes = max(fileSize, 0)
-                updated.progress = 1.0
-                updated.status = .completed
-                updated.completionDate = Date()
+    private func startDownload(_ task: DownloadTask) {
+        guard let idx = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[idx].status = .downloading
+        tasks[idx].startDate = Date()
+        saveTasks()
 
-                await MainActor.run {
-                    if let idx = tasks.firstIndex(where: { $0.id == task.id }) {
-                        tasks[idx] = updated
-                    }
-                    saveTasks()
-                }
-                await sendNotification(title: "Download Complete", body: "\(task.fileName) downloaded successfully")
+        let request = URLRequest(url: task.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
+        progressTimers[task.id] = Date()
+        lastBytes[task.id] = 0
 
-            } catch {
-                var failed = task
-                failed.status = .failed
-                failed.errorMessage = error.localizedDescription
-                await MainActor.run {
-                    if let idx = tasks.firstIndex(where: { $0.id == task.id }) {
-                        tasks[idx] = failed
-                    }
-                    saveTasks()
-                }
-                await sendNotification(title: "Download Failed", body: "\(task.fileName): \(error.localizedDescription)")
+        let downloadTask = foregroundSession.downloadTask(with: request)
+        ongoingDownloads[task.id] = downloadTask
+        downloadTask.resume()
+
+        startSpeedMonitor()
+    }
+
+    private func startSpeedMonitor() {
+        speedUpdateTimer?.invalidate()
+        speedUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateAllSpeeds()
             }
         }
+    }
+
+    private func updateAllSpeeds() {
+        var totalSpeed: Double = 0
+        for (id, _) in ongoingDownloads {
+            guard let idx = tasks.firstIndex(where: { $0.id == id }) else { continue }
+            let now = Date()
+            let elapsed = now.timeIntervalSince(progressTimers[id] ?? now)
+            if elapsed >= 1.0 {
+                let currentBytes = tasks[idx].downloadedBytes
+                let last = lastBytes[id] ?? 0
+                let speed = Double(currentBytes - last) / elapsed
+                tasks[idx].downloadSpeed = max(0, speed)
+                totalSpeed += tasks[idx].downloadSpeed
+                progressTimers[id] = now
+                lastBytes[id] = currentBytes
+            }
+        }
+        totalDownloadSpeed = totalSpeed
     }
 
     func pauseTask(_ id: UUID) {
-        guard let task = tasks.first(where: { $0.id == id }),
-              task.status == .downloading else { return }
+        guard let idx = tasks.firstIndex(where: { $0.id == id }),
+              tasks[idx].status == .downloading else { return }
+
         ongoingDownloads[id]?.cancel(byProducingResumeData: { data in
-            Task { await MainActor.run { self.updateTaskResumeData(id, data: data) } }
+            Task { @MainActor in
+                self.updateTaskResumeData(id, data: data)
+            }
         })
         ongoingDownloads[id] = nil
-        updateTaskStatus(id, status: .paused)
+        progressTimers[id] = nil
+        lastBytes[id] = nil
+
+        tasks[idx].status = .paused
+        saveTasks()
     }
 
     func resumeTask(_ id: UUID) {
-        guard let task = tasks.first(where: { $0.id == id }),
-              task.status == .paused, let resumeData = task.resumeData else {
-            if let task = tasks.first(where: { $0.id == id }) {
-                startDownload(task)
-            }
-            return
+        guard let idx = tasks.firstIndex(where: { $0.id == id }) else { return }
+        let task = tasks[idx]
+
+        if task.status == .paused, let resumeData = task.resumeData {
+            tasks[idx].status = .downloading
+            tasks[idx].startDate = Date()
+            saveTasks()
+
+            progressTimers[id] = Date()
+            lastBytes[id] = task.downloadedBytes
+            let downloadTask = foregroundSession.downloadTask(withResumeData: resumeData)
+            ongoingDownloads[id] = downloadTask
+            downloadTask.resume()
+            startSpeedMonitor()
+        } else {
+            startDownload(task)
         }
-        updateTaskStatus(id, status: .downloading)
-        let downloadTask = urlSession.downloadTask(withResumeData: resumeData)
-        ongoingDownloads[id] = downloadTask
-        downloadTask.resume()
     }
 
     func cancelTask(_ id: UUID) {
         ongoingDownloads[id]?.cancel()
-        ongoingDownloads[id] = nil
-        updateTaskStatus(id, status: .cancelled)
+        cleanupTask(id)
+        if let idx = tasks.firstIndex(where: { $0.id == id }) {
+            tasks[idx].status = .cancelled
+            saveTasks()
+        }
     }
 
     func removeTask(_ id: UUID) {
         ongoingDownloads[id]?.cancel()
-        ongoingDownloads[id] = nil
+        cleanupTask(id)
         tasks.removeAll { $0.id == id }
         saveTasks()
     }
 
     func retryTask(_ id: UUID) {
-        guard let task = tasks.first(where: { $0.id == id }) else { return }
-        var retryTask = task
-        retryTask.status = .queued
-        retryTask.progress = 0
-        retryTask.downloadedBytes = 0
-        retryTask.errorMessage = nil
-        retryTask.startDate = Date()
-        if let idx = tasks.firstIndex(where: { $0.id == id }) {
-            tasks[idx] = retryTask
-        }
+        guard let idx = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[idx].status = .queued
+        tasks[idx].progress = 0
+        tasks[idx].downloadedBytes = 0
+        tasks[idx].downloadSpeed = 0
+        tasks[idx].errorMessage = nil
+        tasks[idx].startDate = Date()
+        tasks[idx].retryCount += 1
         saveTasks()
-        startDownload(retryTask)
+        processQueue()
+    }
+
+    func retryAllFailed() {
+        let failedIds = tasks.filter { $0.status == .failed }.map { $0.id }
+        for id in failedIds { retryTask(id) }
+    }
+
+    func clearCompleted() {
+        tasks.removeAll { $0.status == .completed }
+        saveTasks()
+    }
+
+    func pauseAll() {
+        let downloadingIds = tasks.filter { $0.status == .downloading }.map { $0.id }
+        for id in downloadingIds { pauseTask(id) }
+    }
+
+    func resumeAll() {
+        let pausedIds = tasks.filter { $0.status == .paused || $0.status == .queued }.map { $0.id }
+        for id in pausedIds { resumeTask(id) }
+    }
+
+    private func cleanupTask(_ id: UUID) {
+        ongoingDownloads[id] = nil
+        progressTimers[id] = nil
+        lastBytes[id] = nil
     }
 
     private func updateTaskStatus(_ id: UUID, status: DownloadStatus) {
         if let idx = tasks.firstIndex(where: { $0.id == id }) {
-            var task = tasks[idx]
-            task.status = status
-            tasks[idx] = task
+            tasks[idx].status = status
         }
         saveTasks()
     }
 
-    private func updateTaskProgress(_ id: UUID, progress: Double) {
+    private func updateTaskProgress(_ id: UUID, bytes: Int64) {
         if let idx = tasks.firstIndex(where: { $0.id == id }) {
-            var task = tasks[idx]
-            task.progress = progress
-            task.downloadedBytes = Int64(Double(task.fileSize) * progress)
-            tasks[idx] = task
+            tasks[idx].downloadedBytes = bytes
+            if tasks[idx].fileSize > 0 {
+                tasks[idx].progress = min(1.0, Double(bytes) / Double(tasks[idx].fileSize))
+            }
         }
         saveTasks()
     }
 
     private func updateTaskResumeData(_ id: UUID, data: Data?) {
         if let idx = tasks.firstIndex(where: { $0.id == id }) {
-            var task = tasks[idx]
-            task.resumeData = data
-            tasks[idx] = task
+            tasks[idx].resumeData = data
         }
         saveTasks()
     }
 
-    func retryFailedTasks() {
-        let failedTasks = tasks.filter { $0.status == .failed }
-        for task in failedTasks {
-            retryTask(task.id)
-        }
-    }
-
-    func clearCompleted() {
-        tasks.removeAll { $0.status == .completed }
-        saveTasks()
+    func requestNotificationPermission() async {
+        let center = UNUserNotificationCenter.current()
+        try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 
     private func sendNotification(title: String, body: String) async {
@@ -238,10 +303,5 @@ final class DownloadManager: NSObject, ObservableObject {
             trigger: nil
         )
         try? await center.add(request)
-    }
-
-    func requestNotificationPermission() async {
-        let center = UNUserNotificationCenter.current()
-        try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 }

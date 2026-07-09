@@ -22,6 +22,10 @@ struct DownloadTask: Codable, Identifiable, Equatable {
     var errorMessage: String?
     var resumeData: Data?
     var sourceType: LinkSourceType
+    var downloadSpeed: Double
+    var retryCount: Int
+    var priority: Int
+    var category: String?
 
     var progressPercentage: String {
         String(format: "%.1f%%", progress * 100)
@@ -39,12 +43,46 @@ struct DownloadTask: Codable, Identifiable, Equatable {
         return formatter.string(fromByteCount: downloadedBytes)
     }
 
+    var formattedSpeed: String {
+        if downloadSpeed <= 0 { return "N/A" }
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return "\(formatter.string(fromByteCount: Int64(downloadSpeed)))/s"
+    }
+
     var estimatedTimeRemaining: TimeInterval? {
-        guard status == .downloading, downloadedBytes > 0 else { return nil }
-        let remaining = fileSize - downloadedBytes
-        let speed = downloadedBytes / Int64(max(1, Date().timeIntervalSince(startDate)))
-        guard speed > 0 else { return nil }
-        return TimeInterval(remaining) / TimeInterval(speed)
+        guard status == .downloading, downloadedBytes > 0, downloadSpeed > 0 else { return nil }
+        let remaining = max(0, fileSize - downloadedBytes)
+        guard remaining > 0 else { return nil }
+        return TimeInterval(remaining) / downloadSpeed
+    }
+
+    var formattedTimeRemaining: String {
+        guard let eta = estimatedTimeRemaining else { return "--" }
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.hour, .minute, .second]
+        formatter.unitsStyle = .brief
+        return formatter.string(from: eta) ?? "--"
+    }
+
+    var fileExtension: String {
+        (fileName as NSString).pathExtension.lowercased()
+    }
+
+    var isMediaFile: Bool {
+        ["mp4", "mov", "avi", "mkv", "mp3", "wav", "aac", "flac", "m4a"].contains(fileExtension)
+    }
+
+    var isDocument: Bool {
+        ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "md"].contains(fileExtension)
+    }
+
+    var isArchive: Bool {
+        ["zip", "rar", "7z", "tar", "gz", "bz2"].contains(fileExtension)
+    }
+
+    var isImage: Bool {
+        ["jpg", "jpeg", "png", "gif", "bmp", "webp", "heic", "svg"].contains(fileExtension)
     }
 
     static func == (lhs: DownloadTask, rhs: DownloadTask) -> Bool {
@@ -66,7 +104,7 @@ enum LinkSourceType: String, Codable, CaseIterable {
         switch self {
         case .direct: return "link"
         case .googleDrive: return "icloud"
-        case .seedr: return "seedling"
+        case .seedr: return "leaf"
         case .mediafire: return "flame"
         case .mega: return "square.stack.3d.up"
         case .dropbox: return "cube.box"

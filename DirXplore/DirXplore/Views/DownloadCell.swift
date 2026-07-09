@@ -37,6 +37,15 @@ final class DownloadCell: UITableViewCell {
         return l
     }()
 
+    private let speedLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.font = .systemFont(ofSize: 11, weight: .regular)
+        l.textColor = .tertiaryLabel
+        l.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return l
+    }()
+
     private let progressContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -56,14 +65,6 @@ final class DownloadCell: UITableViewCell {
     }()
 
     private let progressWidthConstraint: NSLayoutConstraint
-
-    private let fileSizeLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.font = .systemFont(ofSize: 12, weight: .regular)
-        l.textColor = .tertiaryLabel
-        return l
-    }()
 
     private let statusImageView: UIImageView = {
         let iv = UIImageView()
@@ -89,9 +90,9 @@ final class DownloadCell: UITableViewCell {
         containerView.addSubview(fileIconView)
         containerView.addSubview(fileNameLabel)
         containerView.addSubview(statusLabel)
+        containerView.addSubview(speedLabel)
         containerView.addSubview(progressContainer)
         progressContainer.addSubview(progressFill)
-        containerView.addSubview(fileSizeLabel)
         containerView.addSubview(statusImageView)
 
         NSLayoutConstraint.activate([
@@ -112,6 +113,10 @@ final class DownloadCell: UITableViewCell {
             statusLabel.topAnchor.constraint(equalTo: fileNameLabel.bottomAnchor, constant: 2),
             statusLabel.leadingAnchor.constraint(equalTo: fileIconView.trailingAnchor, constant: 12),
 
+            speedLabel.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor),
+            speedLabel.leadingAnchor.constraint(equalTo: statusLabel.trailingAnchor, constant: 8),
+            speedLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusImageView.leadingAnchor, constant: -8),
+
             progressContainer.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 8),
             progressContainer.leadingAnchor.constraint(equalTo: fileIconView.trailingAnchor, constant: 12),
             progressContainer.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -14),
@@ -122,10 +127,6 @@ final class DownloadCell: UITableViewCell {
             progressFill.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
             progressFill.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
             progressWidthConstraint,
-
-            fileSizeLabel.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor),
-            fileSizeLabel.leadingAnchor.constraint(equalTo: statusLabel.trailingAnchor, constant: 8),
-            fileSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusImageView.leadingAnchor, constant: -8),
 
             statusImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             statusImageView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -14),
@@ -141,11 +142,16 @@ final class DownloadCell: UITableViewCell {
         switch task.status {
         case .queued:
             statusLabel.text = "Waiting..."
+            speedLabel.text = nil
             statusImageView.image = UIImage(systemName: "clock")
             statusImageView.tintColor = .systemOrange
             progressContainer.isHidden = true
         case .downloading:
-            statusLabel.text = "\(task.progressPercentage) - \(task.formattedDownloadedSize) / \(task.formattedFileSize)"
+            let pct = task.progressPercentage
+            let downloaded = task.formattedDownloadedSize
+            let total = task.formattedFileSize
+            statusLabel.text = "\(pct) - \(downloaded) / \(total)"
+            speedLabel.text = task.downloadSpeed > 0 ? task.formattedSpeed : nil
             statusImageView.image = UIImage(systemName: "arrow.down.circle")
             statusImageView.tintColor = .tintColor
             progressContainer.isHidden = false
@@ -154,6 +160,7 @@ final class DownloadCell: UITableViewCell {
             progressFill.backgroundColor = .tintColor
         case .paused:
             statusLabel.text = "Paused - \(task.progressPercentage)"
+            speedLabel.text = nil
             statusImageView.image = UIImage(systemName: "pause.circle")
             statusImageView.tintColor = .systemOrange
             progressContainer.isHidden = false
@@ -162,22 +169,24 @@ final class DownloadCell: UITableViewCell {
             progressFill.backgroundColor = .systemOrange
         case .completed:
             statusLabel.text = "Completed - \(task.formattedFileSize)"
+            speedLabel.text = nil
             statusImageView.image = UIImage(systemName: "checkmark.circle.fill")
             statusImageView.tintColor = .systemGreen
             progressContainer.isHidden = true
         case .failed:
             statusLabel.text = task.errorMessage ?? "Failed"
+            speedLabel.text = nil
             statusImageView.image = UIImage(systemName: "exclamationmark.circle")
             statusImageView.tintColor = .systemRed
             progressContainer.isHidden = true
         case .cancelled:
             statusLabel.text = "Cancelled"
+            speedLabel.text = nil
             statusImageView.image = UIImage(systemName: "xmark.circle")
             statusImageView.tintColor = .systemGray
             progressContainer.isHidden = true
         }
 
-        fileSizeLabel.text = nil
         layoutIfNeeded()
     }
 
@@ -213,5 +222,6 @@ final class DownloadCell: UITableViewCell {
         super.prepareForReuse()
         progressWidthConstraint.constant = 0
         progressContainer.isHidden = true
+        speedLabel.text = nil
     }
 }
