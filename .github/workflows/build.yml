@@ -29,14 +29,25 @@ jobs:
         run: |
           xcodebuild -project DirXplore.xcodeproj -showBuildSettings -scheme DirXplore 2>&1 | head -50
 
+      - name: Find Available Simulator
+        id: find-sim
+        run: |
+          SIM=$(xcrun simctl list devices available 2>/dev/null | grep -E "iPhone|iPad" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$SIM" ]; then
+            echo "No simulator found, using generic destination"
+            echo "destination=generic/platform=iOS Simulator" >> $GITHUB_OUTPUT
+          else
+            echo "destination=platform=iOS Simulator,id=$SIM" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build App (Debug, Simulator)
         run: |
           xcodebuild -project DirXplore.xcodeproj \
             -scheme DirXplore \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.0' \
+            -destination '${{ steps.find-sim.outputs.destination }}' \
             -derivedDataPath Build/DerivedData \
-            build-for-testing \
+            build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
