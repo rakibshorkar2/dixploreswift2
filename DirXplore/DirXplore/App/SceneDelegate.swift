@@ -17,9 +17,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
-        Task {
-            await DownloadManager.shared.setupBackgroundSession()
-        }
+        DownloadManager.shared.setupBackgroundSession()
     }
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {

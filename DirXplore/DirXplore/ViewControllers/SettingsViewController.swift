@@ -107,7 +107,7 @@ final class SettingsViewController: UIViewController {
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Clear", style: .destructive) { [weak self] _ in
-            Task { await DownloadManager.shared.clearCompleted() }
+            DownloadManager.shared.clearCompleted()
             self?.clearDownloadedFiles()
             self?.buildSections()
             self?.tableView.reloadData()

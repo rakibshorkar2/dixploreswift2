@@ -440,14 +440,13 @@ final class HomeViewController: UIViewController {
     @objc private func startDownloadTapped() {
         guard let resolved = resolvedLink else { return }
 
-        Task {
-            await DownloadManager.shared.addTask(
-                url: resolved.url,
-                fileName: resolved.fileName,
-                sourceType: resolved.sourceType
-            )
+        DownloadManager.shared.addTask(
+            url: resolved.url,
+            fileName: resolved.fileName,
+            sourceType: resolved.sourceType
+        )
 
-            await MainActor.run {
+        
                 let alert = UIAlertController(
                     title: "Download Started",
                     message: "\"\(resolved.fileName)\" has been added to your downloads.",

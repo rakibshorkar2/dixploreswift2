@@ -12,10 +12,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         configureAppearance()
         registerDefaults()
 
-        if #available(iOS 17.0, *) {
-            Task {
-                await DownloadManager.shared.requestNotificationPermission()
-            }
+        Task {
+            await DownloadManager.shared.requestNotificationPermission()
         }
 
         return true
@@ -30,9 +28,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        Task {
-            await DownloadManager.shared.setupBackgroundSession()
-        }
+        DownloadManager.shared.setupBackgroundSession()
     }
 
     private func configureAppearance() {

@@ -139,12 +139,10 @@ final class DownloadsViewController: UIViewController {
     }
 
     @objc private func refreshData() {
-        Task { @MainActor in
-            self.tasks = manager.tasks
-            self.tableView.reloadData()
-            self.emptyStateView.isHidden = !tasks.isEmpty
-            self.configureNavigationBar()
-        }
+        self.tasks = manager.tasks
+        self.tableView.reloadData()
+        self.emptyStateView.isHidden = !tasks.isEmpty
+        self.configureNavigationBar()
     }
 
     private func showTaskOptions(_ task: DownloadTask) {
@@ -153,17 +151,17 @@ final class DownloadsViewController: UIViewController {
         switch task.status {
         case .downloading, .queued:
             alert.addAction(UIAlertAction(title: "Pause", style: .default) { [weak self] _ in
-                Task { await DownloadManager.shared.pauseTask(task.id) }
+                DownloadManager.shared.pauseTask(task.id)
                 self?.refreshData()
             })
         case .paused:
             alert.addAction(UIAlertAction(title: "Resume", style: .default) { [weak self] _ in
-                Task { await DownloadManager.shared.resumeTask(task.id) }
+                DownloadManager.shared.resumeTask(task.id)
                 self?.refreshData()
             })
         case .failed:
             alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
-                Task { await DownloadManager.shared.retryTask(task.id) }
+                DownloadManager.shared.retryTask(task.id)
                 self?.refreshData()
             })
         case .completed:
@@ -178,13 +176,13 @@ final class DownloadsViewController: UIViewController {
         }
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .destructive) { [weak self] _ in
-            Task { await DownloadManager.shared.cancelTask(task.id) }
+            DownloadManager.shared.cancelTask(task.id)
             self?.refreshData()
         })
 
         if task.status == .completed || task.status == .failed {
             alert.addAction(UIAlertAction(title: "Remove", style: .destructive) { [weak self] _ in
-                Task { await DownloadManager.shared.removeTask(task.id) }
+                DownloadManager.shared.removeTask(task.id)
                 self?.refreshData()
             })
         }
@@ -285,7 +283,7 @@ extension DownloadsViewController: UITableViewDataSource, UITableViewDelegate {
 
         if task.status == .downloading || task.status == .queued {
             let pause = UIContextualAction(style: .normal, title: "Pause") { [weak self] _, _, completion in
-                Task { await DownloadManager.shared.pauseTask(task.id) }
+                DownloadManager.shared.pauseTask(task.id)
                 self?.refreshData()
                 completion(true)
             }
@@ -293,7 +291,7 @@ extension DownloadsViewController: UITableViewDataSource, UITableViewDelegate {
             actions.append(pause)
         } else if task.status == .paused || task.status == .failed {
             let resume = UIContextualAction(style: .normal, title: "Resume") { [weak self] _, _, completion in
-                Task { await DownloadManager.shared.resumeTask(task.id) }
+                DownloadManager.shared.resumeTask(task.id)
                 self?.refreshData()
                 completion(true)
             }
@@ -311,7 +309,7 @@ extension DownloadsViewController: UITableViewDataSource, UITableViewDelegate {
         }
 
         let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, completion in
-            Task { await DownloadManager.shared.removeTask(task.id) }
+            DownloadManager.shared.removeTask(task.id)
             self?.refreshData()
             completion(true)
         }
