@@ -36,12 +36,32 @@ jobs:
       - name: Install Dependencies
         run: brew install xcodegen
 
+      - name: Detect project root and print tree
+        run: |
+          echo "=== Working directory ==="
+          pwd
+          echo ""
+          echo "=== Directory listing ==="
+          ls -la
+          echo ""
+          echo "=== Directory tree (depth 3) ==="
+          find . -maxdepth 3 -type d 2>/dev/null || true
+          echo ""
+          echo "=== Searching for project.yml or .xcodeproj ==="
+          find . -name "project.yml" -maxdepth 2 -type f 2>/dev/null || echo "No project.yml found"
+          find . -name "*.xcodeproj" -maxdepth 2 -type d 2>/dev/null || echo "No .xcodeproj found"
+          echo ""
+          echo "=== Checking for NativeSwift/ directory ==="
+          if [ -d "NativeSwift" ]; then
+            echo "NativeSwift/ EXISTS"
+          else
+            echo "NativeSwift/ does NOT exist — project files are at repo root"
+          fi
+
       - name: Generate Xcode Project
-        working-directory: NativeSwift
         run: xcodegen generate
 
       - name: Resolve SPM Dependencies
-        working-directory: NativeSwift
         run: |
           set -o pipefail
           mkdir -p Build/Logs
@@ -50,7 +70,6 @@ jobs:
             -scmProvider system 2>&1 | tee Build/Logs/spm-resolve.log
 
       - name: Archive App
-        working-directory: NativeSwift
         run: |
           set -o pipefail
           mkdir -p Build/Archive Build/Logs
@@ -93,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: archive-log
-          path: NativeSwift/Build/Logs/
+          path: Build/Logs/
           retention-days: 30
 
       - name: Upload xcarchive as Artifact (on success)
@@ -101,7 +120,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DirXplore-xcarchive
-          path: NativeSwift/Build/Archive/DirXplore.xcarchive
+          path: Build/Archive/DirXplore.xcarchive
           retention-days: 7
 
     outputs:
@@ -132,20 +151,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: DirXplore-xcarchive
-          path: NativeSwift/Build/Archive/
+          path: Build/Archive/
 
       - name: Verify xcarchive exists
         run: |
-          if [ ! -d "NativeSwift/Build/Archive/DirXplore.xcarchive" ]; then
+          if [ ! -d "Build/Archive/DirXplore.xcarchive" ]; then
             echo "FATAL: DirXplore.xcarchive not found in export job."
             echo "The archive job produced it, but it did not survive the artifact transfer."
             exit 1
           fi
-          echo "xcarchive verified: $(du -sh NativeSwift/Build/Archive/DirXplore.xcarchive | cut -f1)"
+          echo "xcarchive verified: $(du -sh Build/Archive/DirXplore.xcarchive | cut -f1)"
 
       - name: Export Unsigned IPA
         id: export_ipa
-        working-directory: NativeSwift
         run: |
           set -o pipefail
           mkdir -p Build/IPA Build/Logs
@@ -174,7 +192,6 @@ jobs:
 
       - name: Validate IPA for Sideloading
         id: validate
-        working-directory: NativeSwift
         run: |
           set -o pipefail
           IPA=$(ls Build/IPA/*.ipa 2>/dev/null | head -1)
@@ -226,7 +243,6 @@ jobs:
           echo "============================================================"
 
       - name: Collect Artifacts
-        working-directory: NativeSwift
         run: |
           set -o pipefail
           mkdir -p Build/Artifacts
@@ -252,8 +268,8 @@ jobs:
         with:
           name: DirXplore-Unsigned
           path: |
-            NativeSwift/Build/IPA/*.ipa
-            NativeSwift/Build/Artifacts/
+            Build/IPA/*.ipa
+            Build/Artifacts/
           retention-days: 30
 
     outputs:

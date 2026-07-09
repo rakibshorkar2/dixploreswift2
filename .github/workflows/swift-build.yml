@@ -21,12 +21,10 @@ jobs:
 
       - name: Resolve SPM dependencies
         run: |
-          cd NativeSwift
           swift package resolve
 
       - name: Build for iOS (Release)
         run: |
-          cd NativeSwift
           xcodebuild -scheme DirXplore \
             -sdk iphoneos18.0 \
             -configuration Release \
@@ -39,17 +37,16 @@ jobs:
 
       - name: Create unsigned IPA
         run: |
-          cd NativeSwift
           mkdir -p Payload
           cp -r "build/Build/Products/Release-iphoneos/DirXplore.app" Payload/
           zip -r DirXplore.ipa Payload
           rm -rf Payload
 
       - name: Verify IPA exists
-        run: test -f NativeSwift/DirXplore.ipa && echo "IPA created successfully"
+        run: test -f DirXplore.ipa && echo "IPA created successfully"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: DirXplore-unsigned.ipa
-          path: NativeSwift/DirXplore.ipa
+          path: DirXplore.ipa
