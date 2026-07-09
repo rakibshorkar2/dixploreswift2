@@ -114,7 +114,7 @@ actor DownloadManager: NSObject, ObservableObject {
 
         do {
             let (localURL, response) = try await urlSession.download(for: request)
-            let fileSize = response?.expectedContentLength ?? 0
+            let fileSize = response.expectedContentLength
             let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
             let destinationURL = documentsDir.appendingPathComponent(task.fileName)
 

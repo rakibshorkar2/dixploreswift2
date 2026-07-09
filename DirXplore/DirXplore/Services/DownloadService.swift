@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 actor DownloadService {
     static let shared = DownloadService()

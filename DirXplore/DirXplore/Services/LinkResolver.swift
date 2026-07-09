@@ -154,15 +154,14 @@ actor LinkResolver {
     private func resolveMediaFire(_ url: URL) async -> (url: URL, fileName: String?) {
         var fileName: String?
         if let response = try? await session.data(from: url),
-           let html = String(data: response.0, encoding: .utf8) {
-            if let range = html.range(of: "aria-label=\"Download") {
-                let rest = html[range...]
-                if let start = rest.range(of: "href=\""),
-                   let end = rest[start.range.lowerBound...].range(of: "\"") {
-                    let href = rest[start.range.upperBound..<end.range.lowerBound]
-                    if let downloadURL = URL(string: String(href)) {
-                        return (downloadURL, fileName)
-                    }
+           let html = String(data: response.0, encoding: .utf8),
+           let range = html.range(of: "aria-label=\"Download") {
+            let startIndex = range.lowerBound
+            if let hrefStart = html.range(of: "href=\"", range: startIndex..<html.endIndex),
+               let hrefEnd = html.range(of: "\"", range: hrefStart.upperBound..<html.endIndex) {
+                let href = String(html[hrefStart.upperBound..<hrefEnd.lowerBound])
+                if let downloadURL = URL(string: href) {
+                    return (downloadURL, fileName)
                 }
             }
         }
@@ -212,6 +211,18 @@ struct ResolvedLink {
     let fileSize: Int64
     let sourceType: LinkSourceType
     let error: LinkError?
+
+    init(url: URL = URL(string: "https://example.com")!,
+         fileName: String = "",
+         fileSize: Int64 = 0,
+         sourceType: LinkSourceType = .unknown,
+         error: LinkError? = nil) {
+        self.url = url
+        self.fileName = fileName
+        self.fileSize = fileSize
+        self.sourceType = sourceType
+        self.error = error
+    }
 
     enum LinkError: LocalizedError {
         case invalidURL

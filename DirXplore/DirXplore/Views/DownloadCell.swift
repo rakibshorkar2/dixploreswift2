@@ -25,7 +25,7 @@ final class DownloadCell: UITableViewCell {
         l.font = .systemFont(ofSize: 15, weight: .semibold)
         l.textColor = .label
         l.numberOfLines = 1
-        l.lineBreakMode = .middleTruncation
+        l.lineBreakMode = .byTruncatingMiddle
         return l
     }()
 
