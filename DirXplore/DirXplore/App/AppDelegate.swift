@@ -1,6 +1,5 @@
 import UIKit
 
-@main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(
@@ -14,15 +13,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(
         _ application: UIApplication,
-        configurationForConnecting connectingSceneSession: UISceneSession,
-        options: UIScene.ConnectionOptions
-    ) -> UISceneConfiguration {
-        let config = UISceneConfiguration(name: "Default", sessionRole: connectingSceneSession.role)
-        config.delegateClass = SceneDelegate.self
-        return config
-    }
-
-    func applicationDidEnterBackground(_ application: UIApplication) {
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        DownloadManager.shared.backgroundCompletionHandler = completionHandler
         DownloadManager.shared.setupBackgroundSession()
     }
 

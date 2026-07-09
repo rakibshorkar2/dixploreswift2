@@ -13,6 +13,8 @@ final class DownloadManager: NSObject, ObservableObject {
     @Published var totalDownloadSpeed: Double = 0
     @Published var isDownloading: Bool = false
 
+    var backgroundCompletionHandler: (() -> Void)?
+
     private var foregroundSession: URLSession!
     private var ongoingDownloads: [UUID: URLSessionDownloadTask] = [:]
     private var progressTimers: [UUID: Date] = [:]
