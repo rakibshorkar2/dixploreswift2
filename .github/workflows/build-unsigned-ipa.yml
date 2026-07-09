@@ -18,15 +18,19 @@ env:
 jobs:
   build:
     name: Build Unsigned IPA
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+      - name: Select Xcode
+        run: |
+          XCODE_APP=$(ls /Applications/ | grep -i xcode | sort -r | head -1)
+          echo "Using: $XCODE_APP"
+          sudo xcode-select -s "/Applications/$XCODE_APP/Contents/Developer"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -34,17 +38,6 @@ jobs:
       - name: Generate Xcode project
         working-directory: ${{ env.PROJECT_DIR }}
         run: xcodegen generate
-
-      - name: Show build settings
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          xcodebuild -project "${{ env.PROJECT_NAME }}.xcodeproj" \
-            -scheme "${{ env.SCHEME }}" \
-            -showBuildSettings \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            | head -50
 
       - name: Build for generic iOS device
         working-directory: ${{ env.PROJECT_DIR }}
@@ -110,7 +103,7 @@ jobs:
           echo "Found IPA: $IPA"
 
       - name: Create Release and Upload IPA
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true' || github.event_name == 'push' }}
+        if: always() && steps.find_ipa.outputs.ipa_path != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
