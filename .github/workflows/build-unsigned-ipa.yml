@@ -16,7 +16,7 @@ permissions:
 env:
   PROJECT_DIR: DirXplore
   SCHEME: DirXplore
-  PROJECT_NAME: DirXplore
+  PROJECT_NAME: DirXplore Pro
 
 jobs:
   build:
@@ -110,9 +110,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: "DirXplore v1.0.${{ github.run_number }}"
+          name: "DirXplore Pro v1.0.${{ github.run_number }}"
           body: |
-            ## DirXplore Unsigned IPA
+            ## DirXplore Pro Unsigned IPA
 
             ### How to sideload:
             1. Download the IPA from this release
