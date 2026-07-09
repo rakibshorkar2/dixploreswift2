@@ -27,7 +27,4 @@ targets:
         CODE_SIGN_STYLE: Automatic
     info:
       path: DirXplore/App/Info.plist
-    dependencies:
-      - framework: UIKit.framework
-      - framework: Foundation.framework
-      - framework: UserNotifications.framework
+    dependencies: []
