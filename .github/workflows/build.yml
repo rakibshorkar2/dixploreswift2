@@ -14,8 +14,8 @@ on:
         type: string
 
 jobs:
-  build:
-    name: Archive & Export Unsigned IPA
+  archive:
+    name: Archive (xcarchive)
     runs-on: macos-latest
 
     steps:
@@ -23,6 +23,7 @@ jobs:
 
       - name: Select Xcode 16
         run: |
+          set -x
           XCODE_PATH=$(xcode-select -p 2>/dev/null || echo "")
           if [ -z "$XCODE_PATH" ] || ! echo "$XCODE_PATH" | grep -q "Xcode"; then
             AVAILABLE=$(ls /Applications/Xcode_16*.app/Contents/Developer 2>/dev/null | head -1)
@@ -36,18 +37,25 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode Project
+        working-directory: NativeSwift
         run: xcodegen generate
 
       - name: Resolve SPM Dependencies
+        working-directory: NativeSwift
         run: |
+          set -o pipefail
+          mkdir -p Build/Logs
           xcodebuild -resolvePackageDependencies \
             -project DirXplore.xcodeproj \
-            -scmProvider system
+            -scmProvider system 2>&1 | tee Build/Logs/spm-resolve.log
 
-      - name: Archive App & Extensions
-        id: archive
+      - name: Archive App
+        working-directory: NativeSwift
         run: |
+          set -o pipefail
           mkdir -p Build/Archive Build/Logs
+
+          echo "=== Starting xcodebuild archive ==="
           xcodebuild -project DirXplore.xcodeproj \
             -scheme DirXplore \
             -configuration Release \
@@ -59,52 +67,132 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath Build/Logs/result.xcresult \
-            | tee Build/Logs/build.log
+            2>&1 | tee Build/Logs/archive.log
 
+          echo "=== xcodebuild archive exit code: $? ==="
+
+          # Verify the archive was actually created
+          if [ ! -d "Build/Archive/DirXplore.xcarchive" ]; then
+            echo ""
+            echo "============================================================"
+            echo "FAIL: DirXplore.xcarchive was NOT created."
+            echo "The archive step failed. See build log for details."
+            echo "============================================================"
+            echo ""
+            echo "Last 50 lines of archive.log:"
+            tail -50 Build/Logs/archive.log
+            exit 1
+          fi
+
+          ARCHIVE_SIZE=$(du -sh Build/Archive/DirXplore.xcarchive | cut -f1)
+          echo "SUCCESS: DirXplore.xcarchive created ($ARCHIVE_SIZE)"
           echo "archived=true" >> $GITHUB_OUTPUT
+
+      - name: Upload Archive Log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-log
+          path: NativeSwift/Build/Logs/
+          retention-days: 30
+
+      - name: Upload xcarchive as Artifact (on success)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DirXplore-xcarchive
+          path: NativeSwift/Build/Archive/DirXplore.xcarchive
+          retention-days: 7
+
+    outputs:
+      archived: ${{ steps.archive.outputs.archived }}
+
+  export:
+    name: Export Unsigned IPA
+    needs: archive
+    if: needs.archive.result == 'success'
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          set -o pipefail
+          XCODE_PATH=$(xcode-select -p 2>/dev/null || echo "")
+          if [ -z "$XCODE_PATH" ] || ! echo "$XCODE_PATH" | grep -q "Xcode"; then
+            AVAILABLE=$(ls /Applications/Xcode_16*.app/Contents/Developer 2>/dev/null | head -1)
+            if [ -n "$AVAILABLE" ]; then
+              sudo xcode-select -s "$AVAILABLE"
+            fi
+          fi
+          xcodebuild -version
+
+      - name: Restore xcarchive from previous job
+        uses: actions/download-artifact@v4
+        with:
+          name: DirXplore-xcarchive
+          path: NativeSwift/Build/Archive/
+
+      - name: Verify xcarchive exists
+        run: |
+          if [ ! -d "NativeSwift/Build/Archive/DirXplore.xcarchive" ]; then
+            echo "FATAL: DirXplore.xcarchive not found in export job."
+            echo "The archive job produced it, but it did not survive the artifact transfer."
+            exit 1
+          fi
+          echo "xcarchive verified: $(du -sh NativeSwift/Build/Archive/DirXplore.xcarchive | cut -f1)"
 
       - name: Export Unsigned IPA
         id: export_ipa
+        working-directory: NativeSwift
         run: |
-          mkdir -p Build/IPA
+          set -o pipefail
+          mkdir -p Build/IPA Build/Logs
+
           xcodebuild -exportArchive \
             -archivePath Build/Archive/DirXplore.xcarchive \
             -exportPath Build/IPA \
             -exportOptionsPlist ExportOptions.plist \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            | tee -a Build/Logs/build.log
+            2>&1 | tee Build/Logs/export.log
+
+          echo "=== xcodebuild export exit code: $? ==="
 
           IPA_PATH=$(ls Build/IPA/*.ipa 2>/dev/null | head -1)
           if [ -z "$IPA_PATH" ]; then
-            echo "IPA export failed — no .ipa file found."
+            echo ""
+            echo "============================================================"
+            echo "FAIL: No .ipa file generated."
+            echo "Export failed. Last 30 lines of export.log:"
+            tail -30 Build/Logs/export.log
+            echo "============================================================"
             exit 1
           fi
+
           echo "ipa_path=$IPA_PATH" >> $GITHUB_OUTPUT
           echo "IPA generated: $IPA_PATH ($(stat -f%z "$IPA_PATH") bytes)"
 
       - name: Validate IPA for Sideloading
+        id: validate
+        working-directory: NativeSwift
         run: |
+          set -o pipefail
           IPA=$(ls Build/IPA/*.ipa 2>/dev/null | head -1)
           if [ -z "$IPA" ]; then
             echo "FAIL: No IPA found"
             exit 1
           fi
 
-          # Check IPA is a valid zip
           unzip -t "$IPA" > /dev/null 2>&1 || {
             echo "FAIL: IPA is not a valid zip archive"
             exit 1
           }
 
-          # Check Payload/ directory exists
           unzip -l "$IPA" 2>/dev/null | grep -q "Payload/" || {
             echo "FAIL: IPA missing Payload/ directory"
             exit 1
           }
 
-          # Check for .app bundle
           APP_BUNDLE=$(unzip -l "$IPA" 2>/dev/null | grep -oE "Payload/[^/]+\.app/" | head -1)
           if [ -z "$APP_BUNDLE" ]; then
             echo "FAIL: IPA missing .app bundle"
@@ -112,12 +200,6 @@ jobs:
           fi
           echo "App bundle: $APP_BUNDLE"
 
-          # Verify Info.plist inside app
-          unzip -p "$IPA" "${APP_BUNDLE}Info.plist" > /tmp/ipa_info.plist 2>/dev/null || {
-            echo "WARN: Could not extract Info.plist from IPA"
-          }
-
-          # Extract version info
           MARKETING_VERSION=$(unzip -p "$IPA" "${APP_BUNDLE}Info.plist" 2>/dev/null | \
             grep -A1 CFBundleShortVersionString | grep string | sed -E 's/.*<string>(.*)<\/string>.*/\1/' || echo "unknown")
           BUILD_NUMBER=$(unzip -p "$IPA" "${APP_BUNDLE}Info.plist" 2>/dev/null | \
@@ -127,37 +209,37 @@ jobs:
           echo "build=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "release_name=v${MARKETING_VERSION}-b${BUILD_NUMBER}" >> $GITHUB_OUTPUT
 
-          # Bundle ID
           BUNDLE_ID=$(unzip -p "$IPA" "${APP_BUNDLE}Info.plist" 2>/dev/null | \
             grep -A1 CFBundleIdentifier | grep string | sed -E 's/.*<string>(.*)<\/string>.*/\1/' || echo "unknown")
           echo "bundle_id=$BUNDLE_ID" >> $GITHUB_OUTPUT
           echo "Bundle identifier: $BUNDLE_ID"
 
-          # Check entitlements
           codesign -d --entitlements :- "Build/Archive/DirXplore.xcarchive/Products/Applications/DirXplore.app" 2>/dev/null | \
             plutil -convert json -o /dev/null - - || echo "WARN: Could not verify entitlements (normal for unsigned build)"
 
+          echo ""
+          echo "============================================================"
           echo "IPA validation PASSED"
-          echo "✅ App: $APP_BUNDLE"
-          echo "✅ Version: $MARKETING_VERSION (build $BUILD_NUMBER)"
-          echo "✅ Bundle ID: $BUNDLE_ID"
+          echo "App: $APP_BUNDLE"
+          echo "Version: $MARKETING_VERSION (build $BUILD_NUMBER)"
+          echo "Bundle ID: $BUNDLE_ID"
+          echo "============================================================"
 
-      - name: Collect & Compress Artifacts
+      - name: Collect Artifacts
+        working-directory: NativeSwift
         run: |
-          # dSYMs
+          set -o pipefail
           mkdir -p Build/Artifacts
-          DSYM_COUNT=0
+
           DSYM_SRC="Build/Archive/DirXplore.xcarchive/dSYMs"
           if [ -d "$DSYM_SRC" ]; then
             cp -R "$DSYM_SRC" Build/Artifacts/dSYMs
             DSYM_COUNT=$(find Build/Artifacts/dSYMs -name "*.dSYM" | wc -l)
+            echo "Collected $DSYM_COUNT dSYM bundles"
           fi
-          echo "Collected $DSYM_COUNT dSYM bundles"
 
-          # Build log
-          cp Build/Logs/build.log Build/Artifacts/build.log
+          cp Build/Logs/export.log Build/Artifacts/export.log
 
-          # Compress xcarchive (optional)
           if [ -d "Build/Archive/DirXplore.xcarchive" ]; then
             cd Build/Archive
             zip -r -q ../Artifacts/DirXplore.xcarchive.zip DirXplore.xcarchive
@@ -165,13 +247,13 @@ jobs:
             echo "xcarchive compressed"
           fi
 
-      - name: Upload Artifacts
+      - name: Upload IPA & Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: DirXplore-Unsigned
           path: |
-            Build/IPA/*.ipa
-            Build/Artifacts/
+            NativeSwift/Build/IPA/*.ipa
+            NativeSwift/Build/Artifacts/
           retention-days: 30
 
     outputs:
@@ -183,7 +265,7 @@ jobs:
   release:
     name: Create GitHub Release
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: build
+    needs: export
     runs-on: ubuntu-latest
 
     steps:
@@ -205,8 +287,8 @@ jobs:
             echo "tag=${{ github.event.inputs.version_tag }}" >> $GITHUB_OUTPUT
             echo "name=DirXplore ${{ github.event.inputs.version_tag }}" >> $GITHUB_OUTPUT
           else
-            VERSION="${{ needs.build.outputs.version }}"
-            BUILD="${{ needs.build.outputs.build }}"
+            VERSION="${{ needs.export.outputs.version }}"
+            BUILD="${{ needs.export.outputs.build }}"
             TAG="v${VERSION}-b${BUILD}"
             echo "tag=${TAG}" >> $GITHUB_OUTPUT
             echo "name=DirXplore v${VERSION} (Build ${BUILD})" >> $GITHUB_OUTPUT
@@ -220,9 +302,9 @@ jobs:
           body: |
             ## DirXplore Unsigned IPA
 
-            **Bundle ID:** ${{ needs.build.outputs.bundle_id }}
-            **Version:** ${{ needs.build.outputs.version }}
-            **Build:** ${{ needs.build.outputs.build }}
+            **Bundle ID:** ${{ needs.export.outputs.bundle_id }}
+            **Version:** ${{ needs.export.outputs.version }}
+            **Build:** ${{ needs.export.outputs.build }}
 
             ### Included
             - Unsigned IPA (sideload with Sideloadly, AltStore, etc.)
@@ -238,7 +320,7 @@ jobs:
             5. Sideload and enjoy!
           files: |
             ReleaseArtifacts/IPA/*.ipa
-            ReleaseArtifacts/dirxplore_build.log
+            ReleaseArtifacts/*.log
             ReleaseArtifacts/DirXplore.xcarchive.zip
           draft: true
           prerelease: false

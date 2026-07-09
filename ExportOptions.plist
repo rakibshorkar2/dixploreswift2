@@ -5,9 +5,7 @@
     <key>method</key>
     <string>development</string>
     <key>signingStyle</key>
-    <string>manual</string>
-    <key>signingCertificate</key>
-    <string>-</string>
+    <string>automatic</string>
     <key>provisioningProfiles</key>
     <dict/>
     <key>compileBitcode</key>
