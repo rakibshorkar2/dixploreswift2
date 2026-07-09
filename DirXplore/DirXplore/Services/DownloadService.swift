@@ -1,12 +1,10 @@
 import Foundation
-import Combine
 import UIKit
 
 actor DownloadService {
     static let shared = DownloadService()
 
     private let session: URLSession
-    private let manager = DownloadManager.shared
 
     private init() {
         let config = URLSessionConfiguration.default
@@ -16,7 +14,9 @@ actor DownloadService {
     }
 
     func downloadFile(from url: URL, fileName: String? = nil) {
-        manager.addTask(url: url, fileName: fileName ?? url.lastPathComponent)
+        Task { @MainActor in
+            DownloadManager.shared.addTask(url: url, fileName: fileName ?? url.lastPathComponent)
+        }
     }
 
     func validateLink(_ urlString: String) async -> LinkValidationResult {
@@ -39,7 +39,9 @@ actor DownloadService {
     }
 
     func startDownload(resolved: ResolvedLink) {
-        manager.addTask(url: resolved.url, fileName: resolved.fileName, sourceType: resolved.sourceType)
+        Task { @MainActor in
+            DownloadManager.shared.addTask(url: resolved.url, fileName: resolved.fileName, sourceType: resolved.sourceType)
+        }
     }
 }
 
