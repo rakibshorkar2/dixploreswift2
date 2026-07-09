@@ -128,7 +128,7 @@ struct DownloadDetailView: View {
     }
 
     private func openFile() {
-        let url = FileManager.default.documentsDirectory.appendingPathComponent(task.fileName)
+        let url = manager.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let vc = UIDocumentInteractionController(url: url)
         vc.delegate = DocumentPreviewDelegate.shared
@@ -136,7 +136,7 @@ struct DownloadDetailView: View {
     }
 
     private func shareFile() {
-        let url = FileManager.default.documentsDirectory.appendingPathComponent(task.fileName)
+        let url = manager.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,

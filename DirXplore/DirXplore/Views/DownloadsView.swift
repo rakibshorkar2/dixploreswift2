@@ -35,41 +35,41 @@ struct DownloadsView: View {
         return result
     }
 
-    private var activeCount: Int { manager.tasks.filter { $0.status == .downloading || $0.status == .queued }.count }
-
     var body: some View {
         NavigationStack {
-            Group {
-                if manager.tasks.isEmpty {
-                    emptyState
-                } else {
-                    List {
-                        ForEach(sections, id: \.0) { title, tasks in
-                            Section {
-                                ForEach(tasks) { task in
-                                    NavigationLink(destination: DownloadDetailView(task: task)) {
-                                        DownloadRow(task: task)
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                Group {
+                    if manager.tasks.isEmpty {
+                        emptyState
+                    } else {
+                        List {
+                            ForEach(sections, id: \.0) { title, tasks in
+                                Section {
+                                    ForEach(tasks) { task in
+                                        NavigationLink(destination: DownloadDetailView(task: task)) {
+                                            DownloadRow(task: task)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .listRowInsets(EdgeInsets())
+                                        .listRowBackground(Color.clear)
+                                        .listRowSeparator(.hidden)
+                                        .padding(.vertical, 4)
                                     }
-                                    .buttonStyle(.plain)
-                                    .listRowInsets(EdgeInsets())
-                                    .listRowBackground(Color.clear)
-                                    .listRowSeparator(.hidden)
-                                    .padding(.vertical, 4)
-                                }
-                            } header: {
-                                HStack {
-                                    Text(title).font(.footnote.weight(.semibold)).textCase(.uppercase)
-                                    Spacer()
-                                    Text("\(tasks.count)").font(.caption).foregroundStyle(.secondary)
+                                } header: {
+                                    HStack {
+                                        Text(title).font(.footnote.weight(.semibold)).textCase(.uppercase)
+                                        Spacer()
+                                        Text("\(tasks.count)").font(.caption).foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }
+                        .listStyle(.insetGrouped)
+                        .scrollContentBackground(.hidden)
                     }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
                 }
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Downloads")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -85,12 +85,10 @@ struct DownloadsView: View {
                                         Text(order.rawValue).tag(order)
                                     }
                                 }
-                                if !manager.tasks.isEmpty {
-                                    Divider()
-                                    Button { manager.pauseAll() } label: { Label("Pause All", systemImage: "pause.circle") }
-                                    Button { manager.resumeAll() } label: { Label("Resume All", systemImage: "play.circle") }
-                                    Button(role: .destructive) { manager.retryAllFailed() } label: { Label("Retry Failed", systemImage: "arrow.clockwise") }
-                                }
+                                Divider()
+                                Button { manager.pauseAll() } label: { Label("Pause All", systemImage: "pause.circle") }
+                                Button { manager.resumeAll() } label: { Label("Resume All", systemImage: "play.circle") }
+                                Button(role: .destructive) { manager.retryAllFailed() } label: { Label("Retry Failed", systemImage: "arrow.clockwise") }
                             } label: {
                                 Image(systemName: "ellipsis.circle").font(.body)
                             }
@@ -100,6 +98,7 @@ struct DownloadsView: View {
             }
             .searchable(text: $searchText, isPresented: $showSearch, prompt: "Search downloads...")
         }
+        .background(Color(.systemGroupedBackground))
     }
 
     private var emptyState: some View {

@@ -126,7 +126,7 @@ struct DownloadRow: View {
     }
 
     private func openFile() {
-        let url = FileManager.default.documentsDirectory.appendingPathComponent(task.fileName)
+        let url = manager.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let vc = UIDocumentInteractionController(url: url)
         vc.delegate = DocumentInteractionDelegate.shared
@@ -134,7 +134,7 @@ struct DownloadRow: View {
     }
 
     private func shareFile() {
-        let url = FileManager.default.documentsDirectory.appendingPathComponent(task.fileName)
+        let url = manager.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
         present(av)

@@ -16,31 +16,27 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    headerSection
-                    quickActionsSection
-                    servicesSection
-                    if !recentDownloads.isEmpty { recentSection }
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        pasteCard
+                        urlInputRow
+                        if let link = resolvedLink { previewCard(for: link) }
+                        servicesSection
+                        if !recentDownloads.isEmpty { recentSection }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
             }
-            .background(Color(.systemGroupedBackground))
+            .navigationTitle("DirXplore Pro")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("DirXplore Pro").font(.largeTitle.weight(.bold))
-                        Text(greeting).font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    .padding(.top, 4)
-                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    if activeCount > 0 {
-                        Button {
-                            UIApplication.shared.open(URL(string: "dirxplore://downloads")!)
-                        } label: {
+                    HStack(spacing: 8) {
+                        storageBadge
+                        if activeCount > 0 {
                             HStack(spacing: 4) {
                                 ProgressView().scaleEffect(0.7)
                                 Text("\(activeCount)").font(.caption.weight(.semibold))
@@ -53,6 +49,7 @@ struct HomeView: View {
                 }
             }
         }
+        .background(Color(.systemGroupedBackground))
         .alert("Error", isPresented: $showError) {
             Button("OK") { showError = false }
         } message: {
@@ -60,46 +57,16 @@ struct HomeView: View {
         }
     }
 
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 0..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        default: return "Good evening"
-        }
-    }
-
-    private var headerSection: some View {
-        HStack {
-            Image(systemName: "icloud.and.arrow.down")
-                .font(.title2)
-                .foregroundStyle(.blue)
-                .padding(10)
-                .background(Circle().fill(Color.blue.opacity(0.1)))
-            Spacer()
-            storageBadge
-        }
-    }
-
     private var storageBadge: some View {
         let total = manager.tasks.filter { $0.status == .completed }.reduce(0) { $0 + $1.fileSize }
         return HStack(spacing: 6) {
-            Image(systemName: "externaldrive")
-                .font(.caption)
+            Image(systemName: "externaldrive").font(.caption)
             Text(ByteCountFormatter.string(fromByteCount: total, countStyle: .file))
                 .font(.caption.weight(.medium))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
         .background(Capsule().fill(Color(.systemGray6)))
-    }
-
-    private var quickActionsSection: some View {
-        VStack(spacing: 12) {
-            pasteCard
-            urlInputRow
-            if let link = resolvedLink { previewCard(for: link) }
-        }
     }
 
     private var pasteCard: some View {
@@ -141,8 +108,7 @@ struct HomeView: View {
             HStack(spacing: 8) {
                 if let source = detectedSource {
                     Image(systemName: sourceIcon(for: source))
-                        .font(.caption)
-                        .foregroundStyle(.blue)
+                        .font(.caption).foregroundStyle(.blue)
                 }
                 TextField("Paste or type a URL...", text: $urlText)
                     .font(.subheadline)
@@ -229,7 +195,10 @@ struct HomeView: View {
 
     private var servicesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Supported Services").font(.footnote.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+            Text("Supported Services")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
                 ForEach(LinkSourceType.allCases, id: \.self) { svc in
                     VStack(spacing: 6) {
@@ -252,7 +221,10 @@ struct HomeView: View {
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Recent").font(.footnote.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+                Text("Recent")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
                 Spacer()
                 NavigationLink("See All", destination: DownloadsView())
                     .font(.caption.weight(.medium))

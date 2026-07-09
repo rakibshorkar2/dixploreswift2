@@ -83,13 +83,13 @@ final class SettingsViewController: UIViewController {
             SettingsSection(title: "About", items: [
                 SettingsItem(icon: "info.circle", iconColor: .tintColor, title: "Version", subtitle: "1.0.0", type: .info("1.0.0")),
                 SettingsItem(icon: "envelope", iconColor: .systemPurple, title: "Contact Support", subtitle: nil, type: .action),
-                SettingsItem(icon: "star", iconColor: .systemYellow, title: "Rate DirXplore", subtitle: nil, type: .action),
+                SettingsItem(icon: "star", iconColor: .systemYellow, title: "Rate DirXplore Pro", subtitle: nil, type: .action),
             ]),
         ]
     }
 
     private func getDownloadsSize() -> Int64 {
-        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let documentsDir = DownloadManager.shared.documentsDir
         guard let enumerator = FileManager.default.enumerator(at: documentsDir, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
         var total: Int64 = 0
         for case let file as URL in enumerator {
@@ -117,7 +117,7 @@ final class SettingsViewController: UIViewController {
     }
 
     private func clearDownloadedFiles() {
-        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let documentsDir = DownloadManager.shared.documentsDir
         guard let files = try? FileManager.default.contentsOfDirectory(at: documentsDir, includingPropertiesForKeys: nil) else { return }
         for file in files {
             try? FileManager.default.removeItem(at: file)
@@ -183,7 +183,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
             clearCompletedDownloads()
         case "Contact Support":
             contactSupport()
-        case "Rate DirXplore":
+        case "Rate DirXplore Pro":
             rateApp()
         case "Downloads":
             showDownloadsStorage()
@@ -220,7 +220,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
         }
         let composer = MFMailComposeViewController()
         composer.setToRecipients(["support@dirxplore.com"])
-        composer.setSubject("DirXplore Support")
+        composer.setSubject("DirXplore Pro Support")
         composer.mailComposeDelegate = self
         present(composer, animated: true)
     }
@@ -232,7 +232,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
     }
 
     private func showDownloadsStorage() {
-        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let documentsDir = DownloadManager.shared.documentsDir
         let vc = UIDocumentPickerViewController(forOpeningContentTypes: [.folder])
         vc.allowsMultipleSelection = false
         present(vc, animated: true)

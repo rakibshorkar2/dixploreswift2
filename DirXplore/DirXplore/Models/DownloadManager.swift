@@ -6,6 +6,13 @@ import UserNotifications
 final class DownloadManager: NSObject, ObservableObject {
     static let shared = DownloadManager()
 
+    var documentsDir: URL {
+        let appFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("DirXplore Pro", isDirectory: true)
+        try? FileManager.default.createDirectory(at: appFolder, withIntermediateDirectories: true)
+        return appFolder
+    }
+
     @Published var tasks: [DownloadTask] = []
     @Published var activeDownloads: Int = 0
     @Published var completedDownloads: Int = 0
@@ -31,7 +38,8 @@ final class DownloadManager: NSObject, ObservableObject {
         config.waitsForConnectivity = true
         config.timeoutIntervalForResource = 86400
         config.httpMaximumConnectionsPerHost = maxConcurrentDownloads
-        self.foregroundSession = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+        super.init()
+        self.foregroundSession = URLSession(configuration: config, delegate: self, delegateQueue: .main)
         loadTasks()
     }
 
@@ -134,6 +142,7 @@ final class DownloadManager: NSObject, ObservableObject {
         lastBytes[task.id] = 0
 
         let downloadTask = foregroundSession.downloadTask(with: request)
+        downloadTask.taskDescription = task.id.uuidString
         ongoingDownloads[task.id] = downloadTask
         downloadTask.resume()
 
@@ -305,5 +314,85 @@ final class DownloadManager: NSObject, ObservableObject {
             trigger: nil
         )
         try? await center.add(request)
+    }
+}
+
+extension DownloadManager: URLSessionDownloadDelegate {
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        guard let idString = downloadTask.taskDescription,
+              let id = UUID(uuidString: idString) else { return }
+
+        // Get the fileName from the task if possible, otherwise use suggestedFilename
+        var fileName = downloadTask.response?.suggestedFilename ?? "downloaded_file"
+
+        Task { @MainActor in
+            if let task = tasks.first(where: { $0.id == id }) {
+                fileName = task.fileName
+            }
+
+            let destinationURL = documentsDir.appendingPathComponent(fileName)
+
+            do {
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                }
+                try FileManager.default.moveItem(at: location, to: destinationURL)
+
+                if let idx = tasks.firstIndex(where: { $0.id == id }) {
+                    tasks[idx].status = .completed
+                    tasks[idx].progress = 1.0
+                    tasks[idx].downloadedBytes = tasks[idx].fileSize
+                    tasks[idx].downloadSpeed = 0
+                }
+                cleanupTask(id)
+                saveTasks()
+                processQueue()
+                await sendNotification(title: "Download Complete", body: "Finished downloading \(fileName)")
+            } catch {
+                if let idx = tasks.firstIndex(where: { $0.id == id }) {
+                    tasks[idx].status = .failed
+                    tasks[idx].errorMessage = error.localizedDescription
+                }
+                cleanupTask(id)
+                saveTasks()
+                processQueue()
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        guard let idString = downloadTask.taskDescription,
+              let id = UUID(uuidString: idString) else { return }
+
+        Task { @MainActor in
+            if let idx = tasks.firstIndex(where: { $0.id == id }) {
+                tasks[idx].downloadedBytes = totalBytesWritten
+                tasks[idx].fileSize = totalBytesExpectedToWrite
+                if totalBytesExpectedToWrite > 0 {
+                    tasks[idx].progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+                }
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let error = error,
+              let idString = task.taskDescription,
+              let id = UUID(uuidString: idString) else { return }
+
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return
+        }
+
+        Task { @MainActor in
+            if let idx = tasks.firstIndex(where: { $0.id == id }) {
+                tasks[idx].status = .failed
+                tasks[idx].errorMessage = error.localizedDescription
+            }
+            cleanupTask(id)
+            saveTasks()
+            processQueue()
+        }
     }
 }

@@ -35,15 +35,19 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                appearanceSection
-                downloadsSection
-                networkSection
-                notificationsSection
-                storageSection
-                aboutSection
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                List {
+                    appearanceSection
+                    downloadsSection
+                    networkSection
+                    notificationsSection
+                    storageSection
+                    aboutSection
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.insetGrouped)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
             .confirmationDialog("Clear All Completed Downloads?", isPresented: $showClearConfirmation, titleVisibility: .visible) {
@@ -56,6 +60,7 @@ struct SettingsView: View {
                 Text("This will remove all completed download files from your device.")
             }
         }
+        .background(Color(.systemGroupedBackground))
     }
 
     private var appearanceSection: some View {
@@ -176,7 +181,7 @@ struct SettingsView: View {
     }
 
     private func clearFiles() {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let documents = manager.documentsDir
         guard let files = try? FileManager.default.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil) else { return }
         for file in files { try? FileManager.default.removeItem(at: file) }
     }
