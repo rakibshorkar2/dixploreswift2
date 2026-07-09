@@ -156,12 +156,15 @@ final class ProxyManager: ObservableObject {
             let connection = NWConnection(host: NWEndpoint.Host(proxy.host), port: NWEndpoint.Port(rawValue: UInt16(proxy.port))!, using: .tcp)
             return try await withCheckedThrowingContinuation { continuation in
                 connection.stateUpdateHandler = { state in
-                    if state == .ready {
+                    switch state {
+                    case .ready:
                         let ms = Int(Date().timeIntervalSince(start) * 1000)
                         connection.cancel()
                         continuation.resume(returning: ms)
-                    } else if state == .failed(let error) || state == .cancelled {
+                    case .failed, .cancelled:
                         continuation.resume(returning: -1)
+                    default:
+                        break
                     }
                 }
                 connection.start(queue: .global(qos: .background))
