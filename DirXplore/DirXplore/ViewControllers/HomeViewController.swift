@@ -446,23 +446,20 @@ final class HomeViewController: UIViewController {
             sourceType: resolved.sourceType
         )
 
-        
-                let alert = UIAlertController(
-                    title: "Download Started",
-                    message: "\"\(resolved.fileName)\" has been added to your downloads.",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "View Downloads", style: .default) { _ in
-                    self.tabBarController?.selectedIndex = 1
-                })
-                alert.addAction(UIAlertAction(title: "OK", style: .cancel))
-                self.present(alert, animated: true)
+        let alert = UIAlertController(
+            title: "Download Started",
+            message: "\"\(resolved.fileName)\" has been added to your downloads.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "View Downloads", style: .default) { _ in
+            self.tabBarController?.selectedIndex = 1
+        })
+        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        self.present(alert, animated: true)
 
-                self.previewCard.isHidden = true
-                self.urlTextField.text = ""
-                self.resolvedLink = nil
-            }
-        }
+        self.previewCard.isHidden = true
+        self.urlTextField.text = ""
+        self.resolvedLink = nil
     }
 
     private func showError(_ error: ResolvedLink.LinkError) {
