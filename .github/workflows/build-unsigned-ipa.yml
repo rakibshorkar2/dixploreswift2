@@ -10,6 +10,9 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write
+
 env:
   PROJECT_DIR: DirXplore
   SCHEME: DirXplore
@@ -103,7 +106,7 @@ jobs:
           echo "Found IPA: $IPA"
 
       - name: Create Release and Upload IPA
-        if: always() && steps.find_ipa.outputs.ipa_path != ''
+        if: success() && steps.find_ipa.outputs.ipa_path != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
