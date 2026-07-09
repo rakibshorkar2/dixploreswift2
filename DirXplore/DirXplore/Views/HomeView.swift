@@ -20,7 +20,6 @@ struct HomeView: View {
                 VStack(spacing: 20) {
                     headerSection
                     quickActionsSection
-                    if !urlText.isEmpty || resolvedLink != nil { urlSection }
                     servicesSection
                     if !recentDownloads.isEmpty { recentSection }
                 }
