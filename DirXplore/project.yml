@@ -19,6 +19,7 @@ targets:
       - path: DirXplore
     settings:
       base:
+        PRODUCT_NAME: "DirXplore Pro"
         PRODUCT_BUNDLE_IDENTIFIER: com.dirxplorerakib.pro
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
