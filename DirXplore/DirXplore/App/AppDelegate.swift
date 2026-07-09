@@ -3,19 +3,12 @@ import UIKit
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    var window: UIWindow?
-
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        configureAppearance()
         registerDefaults()
-
-        Task {
-            await DownloadManager.shared.requestNotificationPermission()
-        }
-
+        Task { await DownloadManager.shared.requestNotificationPermission() }
         return true
     }
 
@@ -24,24 +17,13 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         configurationForConnecting connectingSceneSession: UISceneSession,
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
-        UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+        let config = UISceneConfiguration(name: "Default", sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        return config
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
         DownloadManager.shared.setupBackgroundSession()
-    }
-
-    private func configureAppearance() {
-        let navAppearance = UINavigationBarAppearance()
-        navAppearance.configureWithDefaultBackground()
-        UINavigationBar.appearance().standardAppearance = navAppearance
-        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
-        UINavigationBar.appearance().compactAppearance = navAppearance
-
-        let tabAppearance = UITabBarAppearance()
-        tabAppearance.configureWithDefaultBackground()
-        UITabBar.appearance().standardAppearance = tabAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
     }
 
     private func registerDefaults() {

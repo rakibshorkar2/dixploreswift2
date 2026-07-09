@@ -1,51 +1,17 @@
 import UIKit
-import Combine
 
+@MainActor
 final class HomeViewController: UIViewController {
 
     private let resolver = LinkResolver.shared
-    private let downloadService = DownloadService.shared
-    private var cancellables = Set<AnyCancellable>()
     private var resolvedLink: ResolvedLink?
 
-    private let scrollView: UIScrollView = {
-        let sv = UIScrollView()
-        sv.translatesAutoresizingMaskIntoConstraints = false
-        sv.showsVerticalScrollIndicator = false
-        return sv
-    }()
-
-    private let contentStack: UIStackView = {
-        let s = UIStackView()
-        s.translatesAutoresizingMaskIntoConstraints = false
-        s.axis = .vertical
-        s.spacing = 24
-        s.alignment = .fill
-        return s
-    }()
-
-    private let logoContainer: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
-
-    private let logoImageView: UIImageView = {
-        let iv = UIImageView()
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.image = UIImage(systemName: "arrow.down.circle.fill")
-        iv.tintColor = .tintColor
-        iv.contentMode = .scaleAspectFit
-        return iv
-    }()
-
-    private let titleLabel: UILabel = {
+    private let headerLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "DirXplore"
-        l.font = .systemFont(ofSize: 32, weight: .bold)
+        l.font = .systemFont(ofSize: 34, weight: .bold)
         l.textColor = .label
-        l.textAlignment = .center
         return l
     }()
 
@@ -55,24 +21,19 @@ final class HomeViewController: UIViewController {
         l.text = "Download anything from anywhere"
         l.font = .systemFont(ofSize: 15, weight: .regular)
         l.textColor = .secondaryLabel
-        l.textAlignment = .center
         return l
     }()
 
     private let pasteCard: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .secondarySystemBackground
+        v.backgroundColor = .systemBackground
         v.layer.cornerRadius = 16
         v.layer.cornerCurve = .continuous
-        return v
-    }()
-
-    private let pasteIconContainer: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = UIColor.tintColor.withAlphaComponent(0.12)
-        v.layer.cornerRadius = 22
+        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.shadowOpacity = 0.08
+        v.layer.shadowRadius = 12
+        v.layer.shadowOffset = CGSize(width: 0, height: 4)
         return v
     }()
 
@@ -80,27 +41,26 @@ final class HomeViewController: UIViewController {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.image = UIImage(systemName: "doc.on.clipboard")
-        iv.tintColor = .tintColor
+        iv.tintColor = .systemBlue
         iv.contentMode = .scaleAspectFit
         return iv
     }()
 
-    private let pasteTitleLabel: UILabel = {
+    private let pasteTitle: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Paste Link to Download"
-        l.font = .systemFont(ofSize: 17, weight: .semibold)
+        l.text = "Paste a Link"
+        l.font = .systemFont(ofSize: 18, weight: .semibold)
         l.textColor = .label
         return l
     }()
 
-    private let pasteSubtitleLabel: UILabel = {
+    private let pasteDesc: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Supports Google Drive, Dropbox, direct links & more"
+        l.text = "Google Drive, Dropbox, MEGA, direct URLs..."
         l.font = .systemFont(ofSize: 13, weight: .regular)
         l.textColor = .secondaryLabel
-        l.numberOfLines = 0
         return l
     }()
 
@@ -109,43 +69,39 @@ final class HomeViewController: UIViewController {
         b.translatesAutoresizingMaskIntoConstraints = false
         b.setTitle("Paste & Resolve", for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        b.backgroundColor = .tintColor
+        b.backgroundColor = .systemBlue
         b.setTitleColor(.white, for: .normal)
         b.layer.cornerRadius = 14
         b.layer.cornerCurve = .continuous
         return b
     }()
 
-    private let urlTextField: UITextField = {
-        let tf = UITextField()
-        tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.placeholder = "Or type/paste URL manually..."
-        tf.font = .systemFont(ofSize: 15)
-        tf.textColor = .label
-        tf.backgroundColor = .tertiarySystemBackground
-        tf.layer.cornerRadius = 12
-        tf.layer.cornerCurve = .continuous
-        tf.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 0))
-        tf.leftViewMode = .always
-        tf.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 0))
-        tf.rightViewMode = .always
-        tf.autocorrectionType = .no
-        tf.autocapitalizationType = .none
-        tf.keyboardType = .URL
-        tf.returnKeyType = .go
-        tf.clearButtonMode = .whileEditing
-        return tf
+    private let urlField: UITextField = {
+        let t = UITextField()
+        t.translatesAutoresizingMaskIntoConstraints = false
+        t.placeholder = "Or type URL manually..."
+        t.font = .systemFont(ofSize: 15)
+        t.backgroundColor = .systemGray6
+        t.layer.cornerRadius = 12
+        t.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 0))
+        t.leftViewMode = .always
+        t.autocorrectionType = .no
+        t.autocapitalizationType = .none
+        t.keyboardType = .URL
+        t.returnKeyType = .go
+        t.clearButtonMode = .whileEditing
+        return t
     }()
 
     private let resolveButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        b.setTitle("Resolve Link", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        b.backgroundColor = .secondarySystemBackground
-        b.setTitleColor(.tintColor, for: .normal)
+        b.setTitle("Resolve", for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        b.backgroundColor = .systemGray5
+        b.setTitleColor(.systemBlue, for: .normal)
+        b.setTitleColor(.systemGray, for: .disabled)
         b.layer.cornerRadius = 12
-        b.layer.cornerCurve = .continuous
         b.isEnabled = false
         return b
     }()
@@ -153,41 +109,43 @@ final class HomeViewController: UIViewController {
     private let previewCard: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .secondarySystemBackground
+        v.backgroundColor = .systemGray6
         v.layer.cornerRadius = 16
-        v.layer.cornerCurve = .continuous
         v.isHidden = true
         return v
     }()
 
-    private let previewStack: UIStackView = {
-        let s = UIStackView()
-        s.translatesAutoresizingMaskIntoConstraints = false
-        s.axis = .vertical
-        s.spacing = 8
-        s.alignment = .fill
-        return s
+    private let previewIcon: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.image = UIImage(systemName: "doc")
+        iv.tintColor = .systemBlue
+        iv.contentMode = .scaleAspectFit
+        return iv
     }()
 
-    private let previewFileNameLabel: UILabel = {
+    private let previewName: UILabel = {
         let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
         l.font = .systemFont(ofSize: 16, weight: .semibold)
         l.textColor = .label
-        l.numberOfLines = 0
+        l.numberOfLines = 2
         return l
     }()
 
-    private let previewFileSizeLabel: UILabel = {
+    private let previewSize: UILabel = {
         let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
         l.font = .systemFont(ofSize: 13, weight: .regular)
         l.textColor = .secondaryLabel
         return l
     }()
 
-    private let previewSourceLabel: UILabel = {
+    private let previewSource: UILabel = {
         let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
         l.font = .systemFont(ofSize: 13, weight: .regular)
-        l.textColor = .tintColor
+        l.textColor = .systemBlue
         return l
     }()
 
@@ -196,282 +154,195 @@ final class HomeViewController: UIViewController {
         b.translatesAutoresizingMaskIntoConstraints = false
         b.setTitle("Start Download", for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 17, weight: .bold)
-        b.backgroundColor = .tintColor
+        b.backgroundColor = .systemBlue
         b.setTitleColor(.white, for: .normal)
         b.layer.cornerRadius = 14
         b.layer.cornerCurve = .continuous
         return b
     }()
 
-    private let recentLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Supported Sources"
-        l.font = .systemFont(ofSize: 20, weight: .bold)
-        l.textColor = .label
-        return l
-    }()
-
-    private let sourcesCollection: UICollectionView = {
-        let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .horizontal
-        layout.itemSize = CGSize(width: 100, height: 100)
-        layout.minimumInteritemSpacing = 12
-        layout.sectionInset = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        cv.translatesAutoresizingMaskIntoConstraints = false
-        cv.showsHorizontalScrollIndicator = false
-        cv.backgroundColor = .clear
-        cv.register(SourceCell.self, forCellWithReuseIdentifier: "SourceCell")
-        return cv
-    }()
-
-    private let activityIndicator: UIActivityIndicatorView = {
-        let a = UIActivityIndicatorView(style: .medium)
-        a.translatesAutoresizingMaskIntoConstraints = false
-        a.hidesWhenStopped = true
-        return a
-    }()
-
-    // MARK: - Lifecycle
+    private let spinner = UIActivityIndicatorView(style: .medium)
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupView()
-        setupConstraints()
+        view.backgroundColor = .systemGroupedBackground
+        setupLayout()
         setupActions()
-        setupDelegates()
-        checkClipboard()
+        urlField.delegate = self
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(true, animated: animated)
-        checkClipboard()
+        navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
-    // MARK: - Setup
-
-    private func setupView() {
-        view.backgroundColor = .systemBackground
-
-        view.addSubview(scrollView)
-        scrollView.addSubview(contentStack)
-
-        contentStack.addArrangedSubview(logoContainer)
-        logoContainer.addSubview(logoImageView)
-        logoContainer.addSubview(titleLabel)
-        logoContainer.addSubview(subtitleLabel)
-
-        contentStack.addArrangedSubview(pasteCard)
-        pasteCard.addSubview(pasteIconContainer)
-        pasteIconContainer.addSubview(pasteIcon)
-        pasteCard.addSubview(pasteTitleLabel)
-        pasteCard.addSubview(pasteSubtitleLabel)
+    private func setupLayout() {
+        view.addSubview(headerLabel)
+        view.addSubview(subtitleLabel)
+        view.addSubview(pasteCard)
+        pasteCard.addSubview(pasteIcon)
+        pasteCard.addSubview(pasteTitle)
+        pasteCard.addSubview(pasteDesc)
         pasteCard.addSubview(pasteButton)
-        pasteCard.addSubview(activityIndicator)
+        view.addSubview(urlField)
+        view.addSubview(resolveButton)
+        view.addSubview(previewCard)
+        previewCard.addSubview(previewIcon)
+        previewCard.addSubview(previewName)
+        previewCard.addSubview(previewSize)
+        previewCard.addSubview(previewSource)
+        previewCard.addSubview(downloadButton)
 
-        contentStack.addArrangedSubview(urlTextField)
-        contentStack.addArrangedSubview(resolveButton)
-
-        contentStack.addArrangedSubview(previewCard)
-        previewCard.addSubview(previewStack)
-        previewStack.addArrangedSubview(previewFileNameLabel)
-        previewStack.addArrangedSubview(previewFileSizeLabel)
-        previewStack.addArrangedSubview(previewSourceLabel)
-        previewStack.addArrangedSubview(downloadButton)
-
-        contentStack.addArrangedSubview(recentLabel)
-        contentStack.addArrangedSubview(sourcesCollection)
-        sourcesCollection.dataSource = self
-    }
-
-    private func setupConstraints() {
-        let sources = LinkSourceType.allCases
-        let cvHeight: CGFloat = 100
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.hidesWhenStopped = true
+        pasteButton.addSubview(spinner)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            headerLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            headerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            headerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
 
-            contentStack.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 20),
-            contentStack.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 20),
-            contentStack.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -20),
-            contentStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -20),
-            contentStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -40),
+            subtitleLabel.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 4),
+            subtitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            subtitleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
 
-            logoContainer.heightAnchor.constraint(equalToConstant: 160),
-            logoImageView.centerXAnchor.constraint(equalTo: logoContainer.centerXAnchor),
-            logoImageView.topAnchor.constraint(equalTo: logoContainer.topAnchor),
-            logoImageView.widthAnchor.constraint(equalToConstant: 60),
-            logoImageView.heightAnchor.constraint(equalToConstant: 60),
-            titleLabel.centerXAnchor.constraint(equalTo: logoContainer.centerXAnchor),
-            titleLabel.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 8),
-            subtitleLabel.centerXAnchor.constraint(equalTo: logoContainer.centerXAnchor),
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            pasteCard.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
+            pasteCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            pasteCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            pasteCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 150),
 
-            pasteCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
-            pasteIconContainer.topAnchor.constraint(equalTo: pasteCard.topAnchor, constant: 20),
-            pasteIconContainer.leadingAnchor.constraint(equalTo: pasteCard.leadingAnchor, constant: 20),
-            pasteIconContainer.widthAnchor.constraint(equalToConstant: 44),
-            pasteIconContainer.heightAnchor.constraint(equalToConstant: 44),
-            pasteIcon.centerXAnchor.constraint(equalTo: pasteIconContainer.centerXAnchor),
-            pasteIcon.centerYAnchor.constraint(equalTo: pasteIconContainer.centerYAnchor),
-            pasteIcon.widthAnchor.constraint(equalToConstant: 22),
-            pasteIcon.heightAnchor.constraint(equalToConstant: 22),
-            pasteTitleLabel.topAnchor.constraint(equalTo: pasteCard.topAnchor, constant: 20),
-            pasteTitleLabel.leadingAnchor.constraint(equalTo: pasteIconContainer.trailingAnchor, constant: 14),
-            pasteTitleLabel.trailingAnchor.constraint(equalTo: pasteCard.trailingAnchor, constant: -20),
-            pasteSubtitleLabel.topAnchor.constraint(equalTo: pasteTitleLabel.bottomAnchor, constant: 4),
-            pasteSubtitleLabel.leadingAnchor.constraint(equalTo: pasteIconContainer.trailingAnchor, constant: 14),
-            pasteSubtitleLabel.trailingAnchor.constraint(equalTo: pasteCard.trailingAnchor, constant: -20),
-            pasteButton.topAnchor.constraint(equalTo: pasteSubtitleLabel.bottomAnchor, constant: 16),
+            pasteIcon.topAnchor.constraint(equalTo: pasteCard.topAnchor, constant: 20),
+            pasteIcon.leadingAnchor.constraint(equalTo: pasteCard.leadingAnchor, constant: 20),
+            pasteIcon.widthAnchor.constraint(equalToConstant: 40),
+            pasteIcon.heightAnchor.constraint(equalToConstant: 40),
+
+            pasteTitle.topAnchor.constraint(equalTo: pasteCard.topAnchor, constant: 20),
+            pasteTitle.leadingAnchor.constraint(equalTo: pasteIcon.trailingAnchor, constant: 14),
+            pasteTitle.trailingAnchor.constraint(equalTo: pasteCard.trailingAnchor, constant: -20),
+
+            pasteDesc.topAnchor.constraint(equalTo: pasteTitle.bottomAnchor, constant: 4),
+            pasteDesc.leadingAnchor.constraint(equalTo: pasteIcon.trailingAnchor, constant: 14),
+            pasteDesc.trailingAnchor.constraint(equalTo: pasteCard.trailingAnchor, constant: -20),
+
+            pasteButton.topAnchor.constraint(equalTo: pasteDesc.bottomAnchor, constant: 16),
             pasteButton.leadingAnchor.constraint(equalTo: pasteCard.leadingAnchor, constant: 20),
             pasteButton.trailingAnchor.constraint(equalTo: pasteCard.trailingAnchor, constant: -20),
             pasteButton.heightAnchor.constraint(equalToConstant: 48),
             pasteButton.bottomAnchor.constraint(equalTo: pasteCard.bottomAnchor, constant: -20),
-            activityIndicator.centerXAnchor.constraint(equalTo: pasteButton.centerXAnchor),
-            activityIndicator.centerYAnchor.constraint(equalTo: pasteButton.centerYAnchor),
 
-            urlTextField.heightAnchor.constraint(equalToConstant: 48),
+            spinner.centerXAnchor.constraint(equalTo: pasteButton.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: pasteButton.centerYAnchor),
+
+            urlField.topAnchor.constraint(equalTo: pasteCard.bottomAnchor, constant: 16),
+            urlField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            urlField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            urlField.heightAnchor.constraint(equalToConstant: 48),
+
+            resolveButton.topAnchor.constraint(equalTo: urlField.bottomAnchor, constant: 12),
+            resolveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            resolveButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             resolveButton.heightAnchor.constraint(equalToConstant: 48),
 
-            previewCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 120),
-            previewStack.topAnchor.constraint(equalTo: previewCard.topAnchor, constant: 16),
-            previewStack.leadingAnchor.constraint(equalTo: previewCard.leadingAnchor, constant: 16),
-            previewStack.trailingAnchor.constraint(equalTo: previewCard.trailingAnchor, constant: -16),
-            previewStack.bottomAnchor.constraint(equalTo: previewCard.bottomAnchor, constant: -16),
+            previewCard.topAnchor.constraint(equalTo: resolveButton.bottomAnchor, constant: 16),
+            previewCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            previewCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            previewCard.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
 
+            previewIcon.topAnchor.constraint(equalTo: previewCard.topAnchor, constant: 16),
+            previewIcon.leadingAnchor.constraint(equalTo: previewCard.leadingAnchor, constant: 16),
+            previewIcon.widthAnchor.constraint(equalToConstant: 48),
+            previewIcon.heightAnchor.constraint(equalToConstant: 48),
+
+            previewName.topAnchor.constraint(equalTo: previewCard.topAnchor, constant: 16),
+            previewName.leadingAnchor.constraint(equalTo: previewIcon.trailingAnchor, constant: 14),
+            previewName.trailingAnchor.constraint(equalTo: previewCard.trailingAnchor, constant: -16),
+
+            previewSize.topAnchor.constraint(equalTo: previewName.bottomAnchor, constant: 4),
+            previewSize.leadingAnchor.constraint(equalTo: previewIcon.trailingAnchor, constant: 14),
+
+            previewSource.topAnchor.constraint(equalTo: previewSize.bottomAnchor, constant: 2),
+            previewSource.leadingAnchor.constraint(equalTo: previewIcon.trailingAnchor, constant: 14),
+
+            downloadButton.topAnchor.constraint(equalTo: previewIcon.bottomAnchor, constant: 16),
+            downloadButton.leadingAnchor.constraint(equalTo: previewCard.leadingAnchor, constant: 16),
+            downloadButton.trailingAnchor.constraint(equalTo: previewCard.trailingAnchor, constant: -16),
             downloadButton.heightAnchor.constraint(equalToConstant: 50),
-
-            sourcesCollection.heightAnchor.constraint(equalToConstant: cvHeight),
+            downloadButton.bottomAnchor.constraint(equalTo: previewCard.bottomAnchor, constant: -16),
         ])
     }
 
     private func setupActions() {
-        pasteButton.addTarget(self, action: #selector(pasteAndResolveTapped), for: .touchUpInside)
+        pasteButton.addTarget(self, action: #selector(pasteTapped), for: .touchUpInside)
         resolveButton.addTarget(self, action: #selector(resolveTapped), for: .touchUpInside)
-        downloadButton.addTarget(self, action: #selector(startDownloadTapped), for: .touchUpInside)
-        urlTextField.addTarget(self, action: #selector(textFieldChanged), for: .editingChanged)
+        downloadButton.addTarget(self, action: #selector(downloadTapped), for: .touchUpInside)
+        urlField.addTarget(self, action: #selector(textChanged), for: .editingChanged)
     }
 
-    private func setupDelegates() {
-        urlTextField.delegate = self
-    }
-
-    private func checkClipboard() {
-        guard let string = UIPasteboard.general.string, !string.isEmpty else { return }
-        if string.hasPrefix("http://") || string.hasPrefix("https://") {
-            UIView.animate(withDuration: 0.2) {
-                self.pasteCard.backgroundColor = UIColor.tintColor.withAlphaComponent(0.08)
-            }
-        }
-    }
-
-    // MARK: - Actions
-
-    @objc private func pasteAndResolveTapped() {
-        guard let pasted = UIPasteboard.general.string, !pasted.isEmpty else {
-            let alert = UIAlertController(title: "Nothing to Paste",
-                                          message: "Your clipboard is empty. Copy a link first.",
-                                          preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            present(alert, animated: true)
+    @objc private func pasteTapped() {
+        guard let text = UIPasteboard.general.string, !text.isEmpty else {
+            let a = UIAlertController(title: "Nothing to Paste", message: "Copy a link first", preferredStyle: .alert)
+            a.addAction(UIAlertAction(title: "OK", style: .default))
+            present(a, animated: true)
             return
         }
-        urlTextField.text = pasted
-        resolveLink(pasted)
-    }
-
-    @objc private func resolveTapped() {
-        guard let text = urlTextField.text, !text.isEmpty else { return }
+        urlField.text = text
         resolveLink(text)
     }
 
-    @objc private func textFieldChanged() {
-        resolveButton.isEnabled = !(urlTextField.text?.isEmpty ?? true)
+    @objc private func resolveTapped() {
+        guard let text = urlField.text, !text.isEmpty else { return }
+        resolveLink(text)
     }
 
-    private func resolveLink(_ urlString: String) {
-        setLoading(true)
+    @objc private func textChanged() {
+        resolveButton.isEnabled = !(urlField.text?.isEmpty ?? true)
+        resolveButton.backgroundColor = resolveButton.isEnabled ? .systemBlue.withAlphaComponent(0.12) : .systemGray5
+        resolveButton.setTitleColor(resolveButton.isEnabled ? .systemBlue : .systemGray, for: .normal)
+    }
+
+    private func resolveLink(_ text: String) {
+        pasteButton.isHidden = true
+        spinner.startAnimating()
+        resolveButton.isEnabled = false
+        previewCard.isHidden = true
 
         Task {
-            let resolved = await resolver.resolve(urlString)
-
+            let resolved = await resolver.resolve(text)
             await MainActor.run {
-                self.setLoading(false)
+                self.spinner.stopAnimating()
+                self.pasteButton.isHidden = false
+                self.resolveButton.isEnabled = true
+                self.textChanged()
 
-                if let error = resolved.error {
-                    self.showError(error)
+                if let err = resolved.error {
+                    let a = UIAlertController(title: "Error", message: err.localizedDescription, preferredStyle: .alert)
+                    a.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(a, animated: true)
                     return
                 }
-
                 self.resolvedLink = resolved
-                self.showPreview(resolved)
+                self.previewName.text = resolved.fileName
+                self.previewSize.text = resolved.fileSize > 0 ? ByteCountFormatter.string(fromByteCount: resolved.fileSize, countStyle: .file) : "Size unknown"
+                self.previewSource.text = "Source: \(resolved.sourceType.rawValue)"
+                self.previewCard.isHidden = false
             }
         }
     }
 
-    private func setLoading(_ loading: Bool) {
-        pasteButton.isHidden = loading
-        resolveButton.isEnabled = !loading && !(urlTextField.text?.isEmpty ?? true)
-        if loading {
-            activityIndicator.startAnimating()
-        } else {
-            activityIndicator.stopAnimating()
-        }
-    }
-
-    private func showPreview(_ resolved: ResolvedLink) {
-        previewFileNameLabel.text = resolved.fileName
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        previewFileSizeLabel.text = resolved.fileSize > 0 ? formatter.string(fromByteCount: resolved.fileSize) : "Size unknown"
-        previewSourceLabel.text = "Source: \(resolved.sourceType.rawValue)"
-        previewCard.isHidden = false
-
-        UIView.animate(withDuration: 0.3) {
-            self.view.layoutIfNeeded()
-        }
-    }
-
-    @objc private func startDownloadTapped() {
-        guard let resolved = resolvedLink else { return }
-
-        DownloadManager.shared.addTask(
-            url: resolved.url,
-            fileName: resolved.fileName,
-            sourceType: resolved.sourceType
-        )
-
-        let alert = UIAlertController(
-            title: "Download Started",
-            message: "\"\(resolved.fileName)\" has been added to your downloads.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "View Downloads", style: .default) { _ in
-            self.tabBarController?.selectedIndex = 1
+    @objc private func downloadTapped() {
+        guard let r = resolvedLink else { return }
+        DownloadManager.shared.addTask(url: r.url, fileName: r.fileName, sourceType: r.sourceType)
+        let a = UIAlertController(title: "Download Started", message: "\"\(r.fileName)\" added to downloads", preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: "View", style: .default) { [weak self] _ in
+            self?.tabBarController?.selectedIndex = 1
         })
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
-        self.present(alert, animated: true)
-
-        self.previewCard.isHidden = true
-        self.urlTextField.text = ""
-        self.resolvedLink = nil
-    }
-
-    private func showError(_ error: ResolvedLink.LinkError) {
-        let alert = UIAlertController(title: "Invalid Link",
-                                      message: error.localizedDescription,
-                                      preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        a.addAction(UIAlertAction(title: "OK", style: .cancel))
+        present(a, animated: true)
+        previewCard.isHidden = true
+        urlField.text = ""
+        resolvedLink = nil
     }
 }
-
-// MARK: - UITextFieldDelegate
 
 extension HomeViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -479,89 +350,5 @@ extension HomeViewController: UITextFieldDelegate {
         resolveLink(text)
         textField.resignFirstResponder()
         return true
-    }
-}
-
-// MARK: - UICollectionViewDataSource
-
-extension HomeViewController: UICollectionViewDataSource {
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        LinkSourceType.allCases.count
-    }
-
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "SourceCell", for: indexPath) as! SourceCell
-        cell.configure(with: LinkSourceType.allCases[indexPath.item])
-        return cell
-    }
-}
-
-// MARK: - SourceCell
-
-final class SourceCell: UICollectionViewCell {
-    private let iconView: UIImageView = {
-        let iv = UIImageView()
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.contentMode = .scaleAspectFit
-        iv.tintColor = .tintColor
-        return iv
-    }()
-
-    private let label: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.font = .systemFont(ofSize: 11, weight: .medium)
-        l.textColor = .secondaryLabel
-        l.textAlignment = .center
-        l.numberOfLines = 0
-        return l
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setup()
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    private func setup() {
-        contentView.backgroundColor = .secondarySystemBackground
-        contentView.layer.cornerRadius = 16
-        contentView.layer.cornerCurve = .continuous
-
-        contentView.addSubview(iconView)
-        contentView.addSubview(label)
-
-        NSLayoutConstraint.activate([
-            iconView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            iconView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            iconView.widthAnchor.constraint(equalToConstant: 32),
-            iconView.heightAnchor.constraint(equalToConstant: 32),
-            label.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 6),
-            label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 4),
-            label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
-        ])
-    }
-
-    func configure(with source: LinkSourceType) {
-        switch source {
-        case .direct:
-            iconView.image = UIImage(systemName: "link")
-        case .googleDrive:
-            iconView.image = UIImage(systemName: "icloud")
-        case .seedr:
-            iconView.image = UIImage(systemName: "leaf")
-        case .mediafire:
-            iconView.image = UIImage(systemName: "flame")
-        case .mega:
-            iconView.image = UIImage(systemName: "square.stack.3d.up")
-        case .dropbox:
-            iconView.image = UIImage(systemName: "cube.box")
-        case .onedrive:
-            iconView.image = UIImage(systemName: "cloud")
-        case .unknown:
-            iconView.image = UIImage(systemName: "questionmark.circle")
-        }
-        label.text = source.rawValue
     }
 }

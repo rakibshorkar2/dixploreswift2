@@ -1,52 +1,24 @@
 import UIKit
 
+@MainActor
 final class MainTabBarController: UITabBarController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupAppearance()
-        configureViewControllers()
+        view.backgroundColor = .systemBackground
+        setupTabs()
     }
 
-    private func setupAppearance() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .systemBackground
+    private func setupTabs() {
+        let home = UINavigationController(rootViewController: HomeViewController())
+        home.tabBarItem = UITabBarItem(title: "Home", image: UIImage(systemName: "house"), tag: 0)
 
-        let itemAppearance = UITabBarItemAppearance()
-        itemAppearance.normal.iconColor = .secondaryLabel
-        itemAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.secondaryLabel]
-        itemAppearance.selected.iconColor = .tintColor
-        itemAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.tintColor]
+        let downloads = UINavigationController(rootViewController: DownloadsViewController())
+        downloads.tabBarItem = UITabBarItem(title: "Downloads", image: UIImage(systemName: "arrow.down.circle"), tag: 1)
 
-        appearance.stackedLayoutAppearance = itemAppearance
-        tabBar.standardAppearance = appearance
-        tabBar.scrollEdgeAppearance = appearance
-        tabBar.tintColor = .tintColor
-    }
+        let settings = UINavigationController(rootViewController: SettingsViewController())
+        settings.tabBarItem = UITabBarItem(title: "Settings", image: UIImage(systemName: "gearshape"), tag: 2)
 
-    private func configureViewControllers() {
-        let homeVC = UINavigationController(rootViewController: HomeViewController())
-        homeVC.tabBarItem = UITabBarItem(
-            title: "Home",
-            image: UIImage(systemName: "house"),
-            selectedImage: UIImage(systemName: "house.fill")
-        )
-
-        let downloadsVC = UINavigationController(rootViewController: DownloadsViewController())
-        downloadsVC.tabBarItem = UITabBarItem(
-            title: "Downloads",
-            image: UIImage(systemName: "arrow.down.circle"),
-            selectedImage: UIImage(systemName: "arrow.down.circle.fill")
-        )
-
-        let settingsVC = UINavigationController(rootViewController: SettingsViewController())
-        settingsVC.tabBarItem = UITabBarItem(
-            title: "Settings",
-            image: UIImage(systemName: "gearshape"),
-            selectedImage: UIImage(systemName: "gearshape.fill")
-        )
-
-        viewControllers = [homeVC, downloadsVC, settingsVC]
+        viewControllers = [home, downloads, settings]
     }
 }

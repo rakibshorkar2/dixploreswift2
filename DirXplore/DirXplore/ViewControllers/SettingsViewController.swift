@@ -1,6 +1,7 @@
 import UIKit
 import MessageUI
 
+@MainActor
 final class SettingsViewController: UIViewController {
 
     private let manager = DownloadManager.shared

@@ -4,35 +4,38 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
-    func scene(
-        _ scene: UIScene,
-        willConnectTo session: UISceneSession,
-        options connectionOptions: UIScene.ConnectionOptions
-    ) {
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        configureAppearance()
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = MainTabBarController()
+        let tabBar = MainTabBarController()
+        tabBar.view.backgroundColor = .systemBackground
+        window.rootViewController = tabBar
+        window.backgroundColor = .systemBackground
         window.makeKeyAndVisible()
         self.window = window
     }
+
+    func sceneDidDisconnect(_ scene: UIScene) {}
+
+    func sceneDidBecomeActive(_ scene: UIScene) {}
+
+    func sceneWillResignActive(_ scene: UIScene) {}
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         DownloadManager.shared.setupBackgroundSession()
     }
 
-    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
-              let url = userActivity.webpageURL else { return }
+    private func configureAppearance() {
+        let nav = UINavigationBarAppearance()
+        nav.configureWithDefaultBackground()
+        UINavigationBar.appearance().standardAppearance = nav
+        UINavigationBar.appearance().scrollEdgeAppearance = nav
+        UINavigationBar.appearance().compactAppearance = nav
 
-        Task {
-            let resolved = await LinkResolver.shared.resolve(url.absoluteString)
-            if resolved.error == nil {
-                DownloadManager.shared.addTask(
-                    url: resolved.url,
-                    fileName: resolved.fileName,
-                    sourceType: resolved.sourceType
-                )
-            }
-        }
+        let tab = UITabBarAppearance()
+        tab.configureWithDefaultBackground()
+        UITabBar.appearance().standardAppearance = tab
+        UITabBar.appearance().scrollEdgeAppearance = tab
     }
 }
