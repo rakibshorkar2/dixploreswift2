@@ -64,7 +64,8 @@ final class DownloadCell: UITableViewCell {
         return v
     }()
 
-    private let progressWidthConstraint: NSLayoutConstraint
+    private var currentProgress: Double = 0
+    private var progressFillTrailing: NSLayoutConstraint!
 
     private let statusImageView: UIImageView = {
         let iv = UIImageView()
@@ -75,7 +76,6 @@ final class DownloadCell: UITableViewCell {
     }()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        progressWidthConstraint = progressFill.widthAnchor.constraint(equalToConstant: 0)
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setup()
     }
@@ -126,13 +126,16 @@ final class DownloadCell: UITableViewCell {
             progressFill.topAnchor.constraint(equalTo: progressContainer.topAnchor),
             progressFill.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
             progressFill.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
-            progressWidthConstraint,
 
             statusImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             statusImageView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -14),
             statusImageView.widthAnchor.constraint(equalToConstant: 24),
             statusImageView.heightAnchor.constraint(equalToConstant: 24),
         ])
+
+        let trailing = progressFill.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor, constant: 0)
+        trailing.isActive = true
+        progressFillTrailing = trailing
     }
 
     func configure(with task: DownloadTask) {
@@ -155,8 +158,9 @@ final class DownloadCell: UITableViewCell {
             statusImageView.image = UIImage(systemName: "arrow.down.circle")
             statusImageView.tintColor = .tintColor
             progressContainer.isHidden = false
-            let maxWidth = UIScreen.main.bounds.width - 120
-            progressWidthConstraint.constant = maxWidth * CGFloat(task.progress)
+            currentProgress = task.progress
+            let cw = progressContainer.bounds.width
+            progressFillTrailing.constant = cw > 0 ? -cw * (1 - CGFloat(task.progress)) : 0
             progressFill.backgroundColor = .tintColor
         case .paused:
             statusLabel.text = "Paused - \(task.progressPercentage)"
@@ -164,8 +168,9 @@ final class DownloadCell: UITableViewCell {
             statusImageView.image = UIImage(systemName: "pause.circle")
             statusImageView.tintColor = .systemOrange
             progressContainer.isHidden = false
-            let maxWidth = UIScreen.main.bounds.width - 120
-            progressWidthConstraint.constant = maxWidth * CGFloat(task.progress)
+            currentProgress = task.progress
+            let cw = progressContainer.bounds.width
+            progressFillTrailing.constant = cw > 0 ? -cw * (1 - CGFloat(task.progress)) : 0
             progressFill.backgroundColor = .systemOrange
         case .completed:
             statusLabel.text = "Completed - \(task.formattedFileSize)"
@@ -220,7 +225,8 @@ final class DownloadCell: UITableViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        progressWidthConstraint.constant = 0
+        currentProgress = 0
+        progressFillTrailing.constant = 0
         progressContainer.isHidden = true
         speedLabel.text = nil
     }

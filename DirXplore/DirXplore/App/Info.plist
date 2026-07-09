@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDisplayName</key>
+    <string>DirXplore Pro</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>
@@ -35,6 +37,14 @@
         <key>NSAllowsArbitraryLoads</key>
         <true/>
     </dict>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>DirXplore Pro needs access to your photo library to save downloaded images and videos.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>DirXplore Pro needs permission to save downloaded files to your photo library.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>DirXplore Pro uses your location to optimize download sources based on your region.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>DirXplore Pro needs local network access to manage downloads and discover devices.</string>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
         <string>arm64</string>

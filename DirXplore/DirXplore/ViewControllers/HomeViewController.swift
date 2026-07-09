@@ -9,7 +9,7 @@ final class HomeViewController: UIViewController {
     private let headerLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "DirXplore"
+        l.text = "DirXplore Pro"
         l.font = .systemFont(ofSize: 34, weight: .bold)
         l.textColor = .label
         return l
