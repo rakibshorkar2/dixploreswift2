@@ -1,4 +1,4 @@
-name: DirXplore Pro
+name: DirXplore
 options:
   bundleIdPrefix: com.dirxplorerakib
   deploymentTarget:
