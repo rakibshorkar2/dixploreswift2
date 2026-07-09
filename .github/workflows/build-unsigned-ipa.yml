@@ -1,0 +1,133 @@
+name: Build Unsigned IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub Release with the IPA'
+        type: boolean
+        default: true
+
+env:
+  PROJECT_DIR: DirXplore
+  SCHEME: DirXplore
+  PROJECT_NAME: DirXplore
+
+jobs:
+  build:
+    name: Build Unsigned IPA
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: xcodegen generate
+
+      - name: Show build settings
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild -project "${{ env.PROJECT_NAME }}.xcodeproj" \
+            -scheme "${{ env.SCHEME }}" \
+            -showBuildSettings \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | head -50
+
+      - name: Build for generic iOS device
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild -project "${{ env.PROJECT_NAME }}.xcodeproj" \
+            -scheme "${{ env.SCHEME }}" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Create unsigned IPA
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          mkdir -p "${{ runner.temp }}/Payload"
+          APP_PATH="${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive/Products/Applications/${{ env.PROJECT_NAME }}.app"
+          if [ -d "$APP_PATH" ]; then
+            cp -R "$APP_PATH" "${{ runner.temp }}/Payload/"
+            cd "${{ runner.temp }}"
+            zip -qr "${{ env.PROJECT_NAME }}.ipa" Payload/
+            echo "IPA created at: ${{ runner.temp }}/${{ env.PROJECT_NAME }}.ipa"
+          else
+            echo "App not found at expected path, searching..."
+            find "${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive" -name "*.app" -type d
+            # Try alternative approach
+            xcodebuild -exportArchive \
+              -archivePath "${{ runner.temp }}/${{ env.PROJECT_NAME }}.xcarchive" \
+              -exportPath "${{ runner.temp }}/${{ env.PROJECT_NAME }}" \
+              -exportWithoutSigning \
+              -exportOptionsPlist /dev/stdin <<< '<?xml version="1.0" encoding="UTF-8"?>
+              <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+              <plist version="1.0"><dict>
+                <key>method</key><string>release</string>
+                <key>signingStyle</key><string>manual</string>
+                <key>signingCertificate</key><string>-</string>
+                <key>provisioningProfile</key><string></string>
+                <key>stripSwiftSymbols</key><false/>
+                <key>generateAssetPackManifest</key><false/>
+                <key>compileBitcode</key><false/>
+                <key>uploadSymbols</key><false/>
+              </dict></plist>'
+          fi
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}-unsigned
+          path: ${{ runner.temp }}/${{ env.PROJECT_NAME }}.ipa
+          retention-days: 7
+
+      - name: Find IPA
+        id: find_ipa
+        run: |
+          IPA=$(find "${{ runner.temp }}" -name "*.ipa" -type f 2>/dev/null | head -1)
+          if [ -z "$IPA" ]; then
+            # Check in export path
+            IPA=$(find "${{ runner.temp }}/${{ env.PROJECT_NAME }}" -name "*.ipa" -type f 2>/dev/null | head -1)
+          fi
+          echo "ipa_path=$IPA" >> $GITHUB_OUTPUT
+          echo "Found IPA: $IPA"
+
+      - name: Create Release and Upload IPA
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true' || github.event_name == 'push' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "DirXplore v1.0.${{ github.run_number }}"
+          body: |
+            ## DirXplore Unsigned IPA
+
+            ### How to sideload:
+            1. Download the IPA from this release
+            2. Use **AltStore**, **SideStore**, **TrollStore**, or **Sideloadly** to install on your iPhone
+            3. No jailbreak required — works on any unsigned iOS device
+
+            ### Features:
+            - Paste & download from any link (Google Drive, Dropbox, Seedr, MEGA, direct links)
+            - Background downloads with progress tracking
+            - Pause, resume, retry failed downloads
+            - iOS-native UI with dark mode support
+            - File preview and sharing
+          files: ${{ steps.find_ipa.outputs.ipa_path }}
+          generate_release_notes: false
