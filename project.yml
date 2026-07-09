@@ -65,8 +65,8 @@ targets:
     preBuildScripts:
       - name: "Copy bypassempire.yaml"
         script: |
-          if [ -f "${SRCROOT}/bypassempire.yaml" ]; then
-            cp "${SRCROOT}/bypassempire.yaml" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/bypassempire.yaml"
+          if [ -f "${SRCROOT}/Resources/bypassempire.yaml" ]; then
+            cp "${SRCROOT}/Resources/bypassempire.yaml" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/bypassempire.yaml"
           fi
     info:
       path: Resources/Info.plist
