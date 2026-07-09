@@ -232,7 +232,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
     }
 
     private func showDownloadsStorage() {
-        let documentsDir = DownloadManager.shared.documentsDir
+        let _ = DownloadManager.shared.documentsDir
         let vc = UIDocumentPickerViewController(forOpeningContentTypes: [.folder])
         vc.allowsMultipleSelection = false
         present(vc, animated: true)
@@ -241,8 +241,10 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
 
 // MARK: - MFMailComposeViewControllerDelegate
 
-extension SettingsViewController: MFMailComposeViewControllerDelegate {
-    func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-        controller.dismiss(animated: true)
+extension SettingsViewController: @preconcurrency MFMailComposeViewControllerDelegate {
+    nonisolated func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+        Task { @MainActor in
+            controller.dismiss(animated: true)
+        }
     }
 }

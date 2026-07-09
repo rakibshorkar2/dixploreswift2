@@ -33,7 +33,6 @@ final class DownloadManager: NSObject, ObservableObject {
     private var speedUpdateTimer: Timer?
 
     private override init() {
-        super.init()
         let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
         config.timeoutIntervalForResource = 86400
@@ -295,7 +294,7 @@ final class DownloadManager: NSObject, ObservableObject {
 
     func requestNotificationPermission() async {
         let center = UNUserNotificationCenter.current()
-        try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 
     private func sendNotification(title: String, body: String) async {
@@ -318,7 +317,7 @@ final class DownloadManager: NSObject, ObservableObject {
 }
 
 extension DownloadManager: URLSessionDownloadDelegate {
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         guard let idString = downloadTask.taskDescription,
               let id = UUID(uuidString: idString) else { return }
 
@@ -360,7 +359,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
         }
     }
 
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         guard let idString = downloadTask.taskDescription,
               let id = UUID(uuidString: idString) else { return }
 
@@ -375,7 +374,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
         }
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard let error = error,
               let idString = task.taskDescription,
               let id = UUID(uuidString: idString) else { return }
