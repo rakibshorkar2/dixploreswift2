@@ -1,21 +1,35 @@
 # Xcode
 *.xcworkspace
-*.xcuserdata
-*.xcodeproj/xcuserdata/
-*.xcodeproj/project.xcworkspace/
+xcuserdata/
 DerivedData/
-Build/
-
-# SwiftPM
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
 .build/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
 Package.resolved
 
 # macOS
 .DS_Store
 *.swp
-*.swo
+*.lock
+*~
+
+# XcodeGen
+*.xcodeproj
+!**/project.yml
+
+# Environment
+.env
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
+*.swo
