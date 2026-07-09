@@ -48,13 +48,23 @@ actor LinkResolver {
             fileName = extractFileName(from: finalURL)
         }
 
+        let headResult = await fetchHeadInfo(url: finalURL)
+        if fileName == nil || fileName == "download" {
+            fileName = headResult.0
+        }
         if fileSize == 0 {
-            fileSize = await fetchFileSize(url: finalURL)
+            fileSize = headResult.1
+        }
+
+        let finalName = fileName ?? "download"
+        if finalName == "download", let lastPath = finalURL.lastPathComponent.removingPercentEncoding, !lastPath.isEmpty, lastPath != "/" {
+            let safeName = lastPath
+            return ResolvedLink(url: finalURL, fileName: safeName, fileSize: fileSize, sourceType: sourceType, error: nil)
         }
 
         return ResolvedLink(
             url: finalURL,
-            fileName: fileName ?? "download",
+            fileName: finalName,
             fileSize: fileSize,
             sourceType: sourceType,
             error: nil
@@ -66,6 +76,9 @@ actor LinkResolver {
         let absoluteString = url.absoluteString.lowercased()
 
         if host.contains("drive.google.com") || absoluteString.contains("drive.google.com") {
+            return .googleDrive
+        }
+        if host.contains("googleusercontent.com") || host.contains("ggpht.com") {
             return .googleDrive
         }
         if host.contains("seedr") || absoluteString.contains("seedr") {
@@ -89,7 +102,9 @@ actor LinkResolver {
            absoluteString.hasSuffix(".dmg") || absoluteString.hasSuffix(".exe") ||
            absoluteString.hasSuffix(".apk") || absoluteString.hasSuffix(".iso") ||
            absoluteString.hasSuffix(".rar") || absoluteString.hasSuffix(".7z") ||
-           absoluteString.hasSuffix(".tar") || absoluteString.hasSuffix(".gz") {
+           absoluteString.hasSuffix(".tar") || absoluteString.hasSuffix(".gz") ||
+           absoluteString.hasSuffix(".webm") || absoluteString.hasSuffix(".m4a") ||
+           absoluteString.hasSuffix(".mov") || absoluteString.hasSuffix(".avi") {
             return .direct
         }
         return .unknown
@@ -193,10 +208,31 @@ actor LinkResolver {
         return nil
     }
 
+    private func fetchHeadInfo(url: URL) async -> (String, Int64) {
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 10
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
+        guard let response = try? await session.data(for: request),
+              let httpResponse = response.1 as? HTTPURLResponse else {
+            return ("", 0)
+        }
+        var fileName = ""
+        if let disposition = httpResponse.allHeaderFields["Content-Disposition"] as? String {
+            fileName = extractFileName(from: disposition) ?? ""
+        }
+        if fileName.isEmpty, let lastPath = url.lastPathComponent.removingPercentEncoding, !lastPath.isEmpty, lastPath != "/" {
+            fileName = lastPath
+        }
+        let size = max(httpResponse.expectedContentLength, 0)
+        return (fileName, size)
+    }
+
     private func fetchFileSize(url: URL) async -> Int64 {
         var request = URLRequest(url: url)
         request.httpMethod = "HEAD"
         request.timeoutInterval = 10
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
         guard let response = try? await session.data(for: request),
               let httpResponse = response.1 as? HTTPURLResponse else {
             return 0
