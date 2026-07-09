@@ -15,8 +15,8 @@ actor DownloadService {
         self.session = URLSession(configuration: config)
     }
 
-    func downloadFile(from url: URL, fileName: String? = nil) async {
-        await manager.addTask(url: url, fileName: fileName ?? url.lastPathComponent)
+    func downloadFile(from url: URL, fileName: String? = nil) {
+        manager.addTask(url: url, fileName: fileName ?? url.lastPathComponent)
     }
 
     func validateLink(_ urlString: String) async -> LinkValidationResult {
@@ -38,19 +38,8 @@ actor DownloadService {
         UIPasteboard.general.string
     }
 
-    func startDownload(resolved: ResolvedLink) async {
-        let task = DownloadTask(
-            id: UUID(),
-            url: resolved.url,
-            fileName: resolved.fileName,
-            fileSize: resolved.fileSize,
-            downloadedBytes: 0,
-            status: .queued,
-            progress: 0,
-            startDate: Date(),
-            sourceType: resolved.sourceType
-        )
-        await manager.addTask(url: resolved.url, fileName: resolved.fileName, sourceType: resolved.sourceType)
+    func startDownload(resolved: ResolvedLink) {
+        manager.addTask(url: resolved.url, fileName: resolved.fileName, sourceType: resolved.sourceType)
     }
 }
 

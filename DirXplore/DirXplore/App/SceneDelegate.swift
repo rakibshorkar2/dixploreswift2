@@ -27,7 +27,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task {
             let resolved = await LinkResolver.shared.resolve(url.absoluteString)
             if resolved.error == nil {
-                await DownloadManager.shared.addTask(
+                DownloadManager.shared.addTask(
                     url: resolved.url,
                     fileName: resolved.fileName,
                     sourceType: resolved.sourceType
