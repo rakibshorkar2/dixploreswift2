@@ -96,6 +96,9 @@ actor LinkResolver {
         if host.contains("1drv") || host.contains("onedrive") || absoluteString.contains("onedrive") {
             return .onedrive
         }
+        if host.contains("cloudflarestorage.com") || host.contains("r2.cloudflarestorage.com") {
+            return .direct
+        }
         if absoluteString.hasSuffix(".mp4") || absoluteString.hasSuffix(".zip") ||
            absoluteString.hasSuffix(".pdf") || absoluteString.hasSuffix(".png") ||
            absoluteString.hasSuffix(".jpg") || absoluteString.hasSuffix(".mp3") ||

@@ -6,6 +6,20 @@ final class HomeViewController: UIViewController {
     private let resolver = LinkResolver.shared
     private var resolvedLink: ResolvedLink?
 
+    private let scrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.translatesAutoresizingMaskIntoConstraints = false
+        s.keyboardDismissMode = .interactive
+        s.showsVerticalScrollIndicator = false
+        return s
+    }()
+
+    private let contentView: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+
     private let headerLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
@@ -169,6 +183,7 @@ final class HomeViewController: UIViewController {
         setupLayout()
         setupActions()
         urlField.delegate = self
+        observeKeyboard()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -176,17 +191,36 @@ final class HomeViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
+    private func observeKeyboard() {
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+
+    @objc private func keyboardWillShow(_ n: Notification) {
+        guard let frame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        scrollView.contentInset.bottom = frame.height - view.safeAreaInsets.bottom
+        scrollView.verticalScrollIndicatorInsets.bottom = frame.height - view.safeAreaInsets.bottom
+    }
+
+    @objc private func keyboardWillHide(_ n: Notification) {
+        scrollView.contentInset.bottom = 0
+        scrollView.verticalScrollIndicatorInsets.bottom = 0
+    }
+
     private func setupLayout() {
-        view.addSubview(headerLabel)
-        view.addSubview(subtitleLabel)
-        view.addSubview(pasteCard)
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+
+        contentView.addSubview(headerLabel)
+        contentView.addSubview(subtitleLabel)
+        contentView.addSubview(pasteCard)
         pasteCard.addSubview(pasteIcon)
         pasteCard.addSubview(pasteTitle)
         pasteCard.addSubview(pasteDesc)
         pasteCard.addSubview(pasteButton)
-        view.addSubview(urlField)
-        view.addSubview(resolveButton)
-        view.addSubview(previewCard)
+        contentView.addSubview(urlField)
+        contentView.addSubview(resolveButton)
+        contentView.addSubview(previewCard)
         previewCard.addSubview(previewIcon)
         previewCard.addSubview(previewName)
         previewCard.addSubview(previewSize)
@@ -198,18 +232,28 @@ final class HomeViewController: UIViewController {
         pasteButton.addSubview(spinner)
 
         NSLayoutConstraint.activate([
-            headerLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            headerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            headerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+
+            headerLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            headerLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            headerLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
 
             subtitleLabel.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 4),
-            subtitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            subtitleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
 
             pasteCard.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
-            pasteCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            pasteCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            pasteCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 150),
+            pasteCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            pasteCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
             pasteIcon.topAnchor.constraint(equalTo: pasteCard.topAnchor, constant: 20),
             pasteIcon.leadingAnchor.constraint(equalTo: pasteCard.leadingAnchor, constant: 20),
@@ -234,19 +278,18 @@ final class HomeViewController: UIViewController {
             spinner.centerYAnchor.constraint(equalTo: pasteButton.centerYAnchor),
 
             urlField.topAnchor.constraint(equalTo: pasteCard.bottomAnchor, constant: 16),
-            urlField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            urlField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            urlField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            urlField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             urlField.heightAnchor.constraint(equalToConstant: 48),
 
             resolveButton.topAnchor.constraint(equalTo: urlField.bottomAnchor, constant: 12),
-            resolveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            resolveButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            resolveButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            resolveButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             resolveButton.heightAnchor.constraint(equalToConstant: 48),
 
             previewCard.topAnchor.constraint(equalTo: resolveButton.bottomAnchor, constant: 16),
-            previewCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            previewCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            previewCard.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            previewCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            previewCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
             previewIcon.topAnchor.constraint(equalTo: previewCard.topAnchor, constant: 16),
             previewIcon.leadingAnchor.constraint(equalTo: previewCard.leadingAnchor, constant: 16),
@@ -268,6 +311,8 @@ final class HomeViewController: UIViewController {
             downloadButton.trailingAnchor.constraint(equalTo: previewCard.trailingAnchor, constant: -16),
             downloadButton.heightAnchor.constraint(equalToConstant: 50),
             downloadButton.bottomAnchor.constraint(equalTo: previewCard.bottomAnchor, constant: -16),
+
+            previewCard.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40),
         ])
     }
 
