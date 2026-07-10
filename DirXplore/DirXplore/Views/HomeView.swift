@@ -236,7 +236,7 @@ struct HomeView: View {
                     .font(.caption.weight(.medium))
             }
             ForEach(recentDownloads) { task in
-                NavigationLink(destination: DownloadDetailView(task: task)) {
+                NavigationLink(destination: DownloadDetailView(taskID: task.id)) {
                     DownloadRow(task: task)
                 }
                 .buttonStyle(.plain)

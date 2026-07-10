@@ -75,6 +75,14 @@ final class DownloadCell: UITableViewCell {
         return iv
     }()
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if !progressContainer.isHidden && currentProgress > 0 {
+            let cw = progressContainer.bounds.width
+            progressFillTrailing.constant = cw > 0 ? -cw * (1 - CGFloat(currentProgress)) : 0
+        }
+    }
+
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setup()
@@ -159,9 +167,8 @@ final class DownloadCell: UITableViewCell {
             statusImageView.tintColor = .tintColor
             progressContainer.isHidden = false
             currentProgress = task.progress
-            let cw = progressContainer.bounds.width
-            progressFillTrailing.constant = cw > 0 ? -cw * (1 - CGFloat(task.progress)) : 0
             progressFill.backgroundColor = .tintColor
+            setNeedsLayout()
         case .paused:
             statusLabel.text = "Paused - \(task.progressPercentage)"
             speedLabel.text = nil
@@ -169,9 +176,8 @@ final class DownloadCell: UITableViewCell {
             statusImageView.tintColor = .systemOrange
             progressContainer.isHidden = false
             currentProgress = task.progress
-            let cw = progressContainer.bounds.width
-            progressFillTrailing.constant = cw > 0 ? -cw * (1 - CGFloat(task.progress)) : 0
             progressFill.backgroundColor = .systemOrange
+            setNeedsLayout()
         case .completed:
             statusLabel.text = "Completed - \(task.formattedFileSize)"
             speedLabel.text = nil
@@ -192,7 +198,6 @@ final class DownloadCell: UITableViewCell {
             progressContainer.isHidden = true
         }
 
-        layoutIfNeeded()
     }
 
     private func iconForFile(_ fileName: String) -> UIImage? {

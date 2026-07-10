@@ -41,8 +41,8 @@ extension UIDevice {
 }
 
 extension FileManager {
-    var documentsDirectory: URL {
-        urls(for: .documentDirectory, in: .userDomainMask).first!
+    var documentsDirectory: URL? {
+        urls(for: .documentDirectory, in: .userDomainMask).first
     }
 
     func fileSize(at url: URL) -> Int64 {

@@ -1,5 +1,5 @@
 import UIKit
-import WebKit
+@preconcurrency import WebKit
 
 @MainActor
 final class BrowserViewController: UIViewController {
@@ -7,6 +7,8 @@ final class BrowserViewController: UIViewController {
     private var webView: WKWebView!
     private var progressBar: UIProgressView!
     private var addressField: UITextField!
+    private var addressBar: UIView!
+    private var goButton: UIButton!
     private var backButton: UIBarButtonItem!
     private var forwardButton: UIBarButtonItem!
     private var shareButton: UIBarButtonItem!
@@ -19,10 +21,10 @@ final class BrowserViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
         title = "Browser"
-        setupWebView()
-        setupToolbar()
         setupAddressBar()
         setupProgressBar()
+        setupWebView()
+        setupToolbar()
         setupNavigationItem()
         observations()
     }
@@ -31,29 +33,11 @@ final class BrowserViewController: UIViewController {
         observation?.invalidate()
     }
 
-    private func setupWebView() {
-        let config = WKWebViewConfiguration()
-        config.dataDetectorTypes = [.link, .phoneNumber]
-        webView = WKWebView(frame: .zero, configuration: config)
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.navigationDelegate = self
-        webView.allowsBackForwardNavigationGestures = true
-        webView.backgroundColor = .systemBackground
-        view.addSubview(webView)
-
-        NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 52),
-            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -44),
-        ])
-    }
-
     private func setupAddressBar() {
-        let bar = UIView()
-        bar.translatesAutoresizingMaskIntoConstraints = false
-        bar.backgroundColor = .systemBackground
-        view.addSubview(bar)
+        addressBar = UIView()
+        addressBar.translatesAutoresizingMaskIntoConstraints = false
+        addressBar.backgroundColor = .systemBackground
+        view.addSubview(addressBar)
 
         addressField = UITextField()
         addressField.translatesAutoresizingMaskIntoConstraints = false
@@ -71,36 +55,32 @@ final class BrowserViewController: UIViewController {
         addressField.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 0))
         addressField.rightViewMode = .always
         addressField.delegate = self
-        bar.addSubview(addressField)
+        addressBar.addSubview(addressField)
 
-        let goButton = UIButton(type: .system)
+        goButton = UIButton(type: .system)
         goButton.translatesAutoresizingMaskIntoConstraints = false
         goButton.setImage(UIImage(systemName: "arrow.up"), for: .normal)
         goButton.tintColor = .white
         goButton.backgroundColor = .systemBlue
         goButton.layer.cornerRadius = 17
         goButton.addTarget(self, action: #selector(goTapped), for: .touchUpInside)
-        bar.addSubview(goButton)
+        addressBar.addSubview(goButton)
 
         NSLayoutConstraint.activate([
-            bar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bar.heightAnchor.constraint(equalToConstant: 52),
+            addressBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            addressBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            addressBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            addressBar.heightAnchor.constraint(equalToConstant: 52),
 
-            addressField.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 12),
-            addressField.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            addressField.leadingAnchor.constraint(equalTo: addressBar.leadingAnchor, constant: 12),
+            addressField.centerYAnchor.constraint(equalTo: addressBar.centerYAnchor),
             addressField.trailingAnchor.constraint(equalTo: goButton.leadingAnchor, constant: -8),
             addressField.heightAnchor.constraint(equalToConstant: 36),
 
-            goButton.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -12),
-            goButton.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            goButton.trailingAnchor.constraint(equalTo: addressBar.trailingAnchor, constant: -12),
+            goButton.centerYAnchor.constraint(equalTo: addressBar.centerYAnchor),
             goButton.widthAnchor.constraint(equalToConstant: 34),
             goButton.heightAnchor.constraint(equalToConstant: 34),
-        ])
-
-        NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: bar.bottomAnchor),
         ])
     }
 
@@ -111,9 +91,25 @@ final class BrowserViewController: UIViewController {
         progressBar.progressTintColor = .systemBlue
         progressBar.isHidden = true
         view.addSubview(progressBar)
+    }
+
+    private func setupWebView() {
+        let config = WKWebViewConfiguration()
+        config.dataDetectorTypes = [.link, .phoneNumber]
+        webView = WKWebView(frame: .zero, configuration: config)
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.navigationDelegate = self
+        webView.allowsBackForwardNavigationGestures = true
+        webView.backgroundColor = .systemBackground
+        view.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            progressBar.topAnchor.constraint(equalTo: webView.topAnchor),
+            webView.topAnchor.constraint(equalTo: progressBar.bottomAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+
+            progressBar.topAnchor.constraint(equalTo: addressBar.bottomAnchor),
             progressBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             progressBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             progressBar.heightAnchor.constraint(equalToConstant: 2),
@@ -137,9 +133,6 @@ final class BrowserViewController: UIViewController {
             toolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             toolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-        ])
-
-        NSLayoutConstraint.activate([
             webView.bottomAnchor.constraint(equalTo: toolbar.topAnchor),
         ])
     }
@@ -161,7 +154,7 @@ final class BrowserViewController: UIViewController {
 
     @objc private func goTapped() {
         guard let text = addressField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return }
-        let url = Self.formattedURL(from: text)
+        guard let url = Self.formattedURL(from: text) else { return }
         addressField.text = url.absoluteString
         webView.load(URLRequest(url: url))
         addressField.resignFirstResponder()
@@ -184,14 +177,16 @@ final class BrowserViewController: UIViewController {
         forwardButton.isEnabled = webView.canGoForward
     }
 
-    static func formattedURL(from input: String) -> URL {
-        if input.contains("."), !input.hasPrefix("http://"), !input.hasPrefix("https://") {
-            return URL(string: "https://" + input) ?? URL(string: "https://www.google.com/search?q=\(input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input)")!
+    static func formattedURL(from input: String) -> URL? {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains("."), !trimmed.hasPrefix("http://"), !trimmed.hasPrefix("https://") {
+            return URL(string: "https://" + trimmed)
         }
-        if input.hasPrefix("http://") || input.hasPrefix("https://") {
-            return URL(string: input) ?? URL(string: "https://www.google.com/search?q=\(input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input)")!
+        if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
+            return URL(string: trimmed)
         }
-        return URL(string: "https://www.google.com/search?q=\(input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input)")!
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
+        return URL(string: "https://www.google.com/search?q=\(encoded)")
     }
 }
 

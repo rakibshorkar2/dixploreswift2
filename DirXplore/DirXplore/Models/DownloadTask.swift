@@ -34,7 +34,7 @@ struct DownloadTask: Codable, Identifiable, Equatable {
     var formattedFileSize: String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
-        return formatter.string(fromByteCount: fileSize)
+        return formatter.string(fromByteCount: max(0, fileSize))
     }
 
     var formattedDownloadedSize: String {

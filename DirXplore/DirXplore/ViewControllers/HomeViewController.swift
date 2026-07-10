@@ -191,9 +191,21 @@ final class HomeViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
+    private var keyboardTokens: [NSObjectProtocol] = []
+
     private func observeKeyboard() {
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
+        keyboardTokens = [
+            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { [weak self] n in
+                self?.keyboardWillShow(n)
+            },
+            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { [weak self] n in
+                self?.keyboardWillHide(n)
+            },
+        ]
+    }
+
+    deinit {
+        keyboardTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     @objc private func keyboardWillShow(_ n: Notification) {
@@ -379,7 +391,7 @@ final class HomeViewController: UIViewController {
         DownloadManager.shared.addTask(url: r.url, fileName: r.fileName, sourceType: r.sourceType)
         let a = UIAlertController(title: "Download Started", message: "\"\(r.fileName)\" added to downloads", preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "View", style: .default) { [weak self] _ in
-            self?.tabBarController?.selectedIndex = 1
+            self?.tabBarController?.selectedIndex = 2
         })
         a.addAction(UIAlertAction(title: "OK", style: .cancel))
         present(a, animated: true)

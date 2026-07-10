@@ -49,7 +49,7 @@ struct DownloadsView: View {
                             ForEach(sections, id: \.0) { title, tasks in
                                 Section {
                                     ForEach(tasks) { task in
-                                        NavigationLink(destination: DownloadDetailView(task: task)) {
+                                        NavigationLink(destination: DownloadDetailView(taskID: task.id)) {
                                             DownloadRow(task: task)
                                         }
                                         .buttonStyle(.plain)

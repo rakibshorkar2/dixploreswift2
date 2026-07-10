@@ -7,8 +7,12 @@ final class DownloadManager: NSObject, ObservableObject {
     static let shared = DownloadManager()
 
     var documentsDir: URL {
-        let appFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("DirXplore Pro", isDirectory: true)
+        guard let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            let fallback = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("DirXplore Pro", isDirectory: true)
+            try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+            return fallback
+        }
+        let appFolder = docsDir.appendingPathComponent("DirXplore Pro", isDirectory: true)
         try? FileManager.default.createDirectory(at: appFolder, withIntermediateDirectories: true)
         return appFolder
     }
@@ -23,6 +27,7 @@ final class DownloadManager: NSObject, ObservableObject {
     var backgroundCompletionHandler: (() -> Void)?
 
     private var foregroundSession: URLSession!
+    private var backgroundSession: URLSession?
     private var ongoingDownloads: [UUID: URLSessionDownloadTask] = [:]
     private var progressTimers: [UUID: Date] = [:]
     private var lastBytes: [UUID: Int64] = [:]
@@ -42,6 +47,10 @@ final class DownloadManager: NSObject, ObservableObject {
         loadTasks()
     }
 
+    deinit {
+        speedUpdateTimer?.invalidate()
+    }
+
     func setupBackgroundSession() {
         let config = URLSessionConfiguration.background(withIdentifier: "com.dirxplore.background")
         config.isDiscretionary = false
@@ -49,7 +58,7 @@ final class DownloadManager: NSObject, ObservableObject {
         config.shouldUseExtendedBackgroundIdleMode = true
         config.waitsForConnectivity = true
         config.timeoutIntervalForResource = 86400
-        _ = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+        backgroundSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }
 
     private func loadTasks() {
@@ -67,9 +76,9 @@ final class DownloadManager: NSObject, ObservableObject {
 
     private func refreshCounts() {
         let active = tasks.filter { $0.status == .downloading || $0.status == .queued }
-        activeDownloads = active.count
+        activeDownloads = tasks.filter { $0.status == .downloading }.count
         completedDownloads = tasks.filter { $0.status == .completed }.count
-        totalBytesDownloaded = tasks.filter { $0.status == .completed }.reduce(0) { $0 + $1.fileSize }
+        totalBytesDownloaded = tasks.filter { $0.status == .completed }.reduce(0) { $0 + max(0, $1.fileSize) }
         isDownloading = active.contains { $0.status == .downloading }
     }
 
@@ -225,6 +234,10 @@ final class DownloadManager: NSObject, ObservableObject {
     func removeTask(_ id: UUID) {
         ongoingDownloads[id]?.cancel()
         cleanupTask(id)
+        if let idx = tasks.firstIndex(where: { $0.id == id }) {
+            let fileURL = documentsDir.appendingPathComponent(tasks[idx].fileName)
+            try? FileManager.default.removeItem(at: fileURL)
+        }
         tasks.removeAll { $0.id == id }
         saveTasks()
     }
@@ -248,6 +261,11 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     func clearCompleted() {
+        let completed = tasks.filter { $0.status == .completed }
+        for task in completed {
+            let fileURL = documentsDir.appendingPathComponent(task.fileName)
+            try? FileManager.default.removeItem(at: fileURL)
+        }
         tasks.removeAll { $0.status == .completed }
         saveTasks()
     }
@@ -321,7 +339,6 @@ extension DownloadManager: URLSessionDownloadDelegate {
         guard let idString = downloadTask.taskDescription,
               let id = UUID(uuidString: idString) else { return }
 
-        // Get the fileName from the task if possible, otherwise use suggestedFilename
         var fileName = downloadTask.response?.suggestedFilename ?? "downloaded_file"
 
         Task { @MainActor in
@@ -337,11 +354,15 @@ extension DownloadManager: URLSessionDownloadDelegate {
                 }
                 try FileManager.default.moveItem(at: location, to: destinationURL)
 
+                let actualSize = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64 ?? 0
+
                 if let idx = tasks.firstIndex(where: { $0.id == id }) {
                     tasks[idx].status = .completed
                     tasks[idx].progress = 1.0
-                    tasks[idx].downloadedBytes = tasks[idx].fileSize
+                    tasks[idx].downloadedBytes = actualSize
+                    tasks[idx].fileSize = actualSize
                     tasks[idx].downloadSpeed = 0
+                    tasks[idx].completionDate = Date()
                 }
                 cleanupTask(id)
                 saveTasks()
@@ -366,8 +387,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
         Task { @MainActor in
             if let idx = tasks.firstIndex(where: { $0.id == id }) {
                 tasks[idx].downloadedBytes = totalBytesWritten
-                tasks[idx].fileSize = totalBytesExpectedToWrite
                 if totalBytesExpectedToWrite > 0 {
+                    tasks[idx].fileSize = totalBytesExpectedToWrite
                     tasks[idx].progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
                 }
             }

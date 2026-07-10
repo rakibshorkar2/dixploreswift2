@@ -1,16 +1,39 @@
 import SwiftUI
 
 struct DownloadDetailView: View {
-    let task: DownloadTask
+    let taskID: UUID
     @EnvironmentObject var manager: DownloadManager
 
     @ScaledMetric private var ringSize: CGFloat = 80
 
+    private var task: DownloadTask? {
+        manager.tasks.first { $0.id == taskID }
+    }
+
     var body: some View {
+        Group {
+            if let task {
+                detailContent(task: task)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "questionmark.folder")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.tertiary)
+                    Text("Task not found")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .navigationTitle("Details")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func detailContent(task: DownloadTask) -> some View {
         List {
             Section {
                 VStack(spacing: 16) {
-                    ProgressRing(progress: task.progress, lineWidth: 8, color: statusColor)
+                    ProgressRing(progress: task.progress, lineWidth: 8, color: statusColor(for: task))
                         .frame(width: ringSize, height: ringSize)
                         .overlay {
                             if task.status == .downloading {
@@ -43,7 +66,7 @@ struct DownloadDetailView: View {
             .listRowBackground(Color.clear)
 
             Section("Information") {
-                infoRow("Status", statusText, icon: statusIcon)
+                infoRow("Status", statusText(for: task), icon: statusIcon(for: task))
                 infoRow("Size", task.formattedFileSize, icon: "externaldrive")
                 if task.downloadedBytes > 0 {
                     infoRow("Downloaded", task.formattedDownloadedSize, icon: "arrow.down.circle")
@@ -56,8 +79,8 @@ struct DownloadDetailView: View {
             }
 
             Section("Actions") {
-                actionRow("Open File", icon: "doc.viewfinder", color: .blue) { openFile() }
-                actionRow("Share", icon: "square.and.arrow.up", color: .blue) { shareFile() }
+                actionRow("Open File", icon: "doc.viewfinder", color: .blue) { openFile(task) }
+                actionRow("Share", icon: "square.and.arrow.up", color: .blue) { shareFile(task) }
                 actionRow("Delete", icon: "trash", color: .red, role: .destructive) { manager.removeTask(task.id) }
                 if task.status == .downloading || task.status == .queued {
                     actionRow("Pause", icon: "pause.circle", color: .orange) { manager.pauseTask(task.id) }
@@ -71,11 +94,9 @@ struct DownloadDetailView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("Details")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var statusText: String {
+    private func statusText(for task: DownloadTask) -> String {
         switch task.status {
         case .queued: return "Waiting"
         case .downloading: return "Downloading – \(task.progressPercentage)"
@@ -86,7 +107,7 @@ struct DownloadDetailView: View {
         }
     }
 
-    private var statusColor: Color {
+    private func statusColor(for task: DownloadTask) -> Color {
         switch task.status {
         case .downloading, .queued: return .blue
         case .paused: return .orange
@@ -96,7 +117,7 @@ struct DownloadDetailView: View {
         }
     }
 
-    private var statusIcon: String {
+    private func statusIcon(for task: DownloadTask) -> String {
         switch task.status {
         case .queued: return "clock"
         case .downloading: return "arrow.down.circle"
@@ -129,7 +150,7 @@ struct DownloadDetailView: View {
         }
     }
 
-    private func openFile() {
+    private func openFile(_ task: DownloadTask) {
         let url = manager.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let vc = UIDocumentInteractionController(url: url)
@@ -137,7 +158,7 @@ struct DownloadDetailView: View {
         vc.presentPreview(animated: true)
     }
 
-    private func shareFile() {
+    private func shareFile(_ task: DownloadTask) {
         let url = manager.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)

@@ -140,7 +140,7 @@ final class DownloadsViewController: UIViewController {
     }
 
     private func open(_ task: DownloadTask) {
-        let u = FileManager.default.documentsDirectory.appendingPathComponent(task.fileName)
+        let u = DownloadManager.shared.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: u.path) else { return }
         let vc = UIDocumentInteractionController(url: u)
         vc.delegate = self
@@ -148,7 +148,7 @@ final class DownloadsViewController: UIViewController {
     }
 
     private func share(_ task: DownloadTask) {
-        let u = FileManager.default.documentsDirectory.appendingPathComponent(task.fileName)
+        let u = DownloadManager.shared.documentsDir.appendingPathComponent(task.fileName)
         guard FileManager.default.fileExists(atPath: u.path) else { return }
         present(UIActivityViewController(activityItems: [u], applicationActivities: nil), animated: true)
     }

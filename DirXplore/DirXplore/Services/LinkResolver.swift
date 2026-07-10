@@ -119,8 +119,11 @@ actor LinkResolver {
             return (url, nil, 0)
         }
 
-        let directURL = URL(string: "https://drive.google.com/uc?export=download&id=\(id)")!
-        let confirmURL = URL(string: "https://drive.google.com/uc?export=download&confirm=t&id=\(id)")!
+        guard let encodedID = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let directURL = URL(string: "https://drive.google.com/uc?export=download&id=\(encodedID)"),
+              let confirmURL = URL(string: "https://drive.google.com/uc?export=download&confirm=t&id=\(encodedID)") else {
+            return (url, nil, 0)
+        }
 
         var fileName: String?
         var fileSize: Int64 = 0
@@ -158,15 +161,17 @@ actor LinkResolver {
     }
 
     private func resolveDropbox(_ url: URL) -> URL {
-        let absoluteString = url.absoluteString
-        if absoluteString.contains("?dl=0") {
-            return URL(string: absoluteString.replacingOccurrences(of: "?dl=0", with: "?dl=1")) ?? url
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        var queryItems = components.queryItems ?? []
+        if queryItems.contains(where: { $0.name == "dl" && $0.value == "0" }) {
+            queryItems.removeAll { $0.name == "dl" }
+            queryItems.append(URLQueryItem(name: "dl", value: "1"))
+        } else if !queryItems.contains(where: { $0.name == "dl" }) &&
+                  !queryItems.contains(where: { $0.name == "raw" }) {
+            queryItems.append(URLQueryItem(name: "dl", value: "1"))
         }
-        if !absoluteString.contains("?dl=1") && !absoluteString.contains("raw=1") {
-            let separator = absoluteString.contains("?") ? "&" : "?"
-            return URL(string: "\(absoluteString)\(separator)dl=1") ?? url
-        }
-        return url
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        return components.url ?? url
     }
 
     private func resolveMediaFire(_ url: URL) async -> (url: URL, fileName: String?) {
@@ -251,7 +256,7 @@ struct ResolvedLink {
     let sourceType: LinkSourceType
     let error: LinkError?
 
-    init(url: URL = URL(string: "https://example.com")!,
+    init(url: URL = URL(fileURLWithPath: "/"),
          fileName: String = "",
          fileSize: Int64 = 0,
          sourceType: LinkSourceType = .unknown,

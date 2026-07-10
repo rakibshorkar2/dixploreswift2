@@ -181,8 +181,11 @@ struct SettingsView: View {
     }
 
     private func clearFiles() {
+        let completedNames = Set(manager.tasks.filter { $0.status == .completed }.map { $0.fileName })
         let documents = manager.documentsDir
         guard let files = try? FileManager.default.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil) else { return }
-        for file in files { try? FileManager.default.removeItem(at: file) }
+        for file in files where completedNames.contains(file.lastPathComponent) {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 }

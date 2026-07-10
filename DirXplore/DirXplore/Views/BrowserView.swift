@@ -111,20 +111,22 @@ struct BrowserView: View {
     private func go() {
         let input = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return }
-        let url = Self.formattedURL(from: input)
+        guard let url = Self.formattedURL(from: input) else { return }
         urlString = url.absoluteString
         model.load(url)
         hideKeyboard()
     }
 
-    static func formattedURL(from input: String) -> URL {
-        if input.contains("."), !input.hasPrefix("http://"), !input.hasPrefix("https://") {
-            return URL(string: "https://" + input) ?? URL(string: "https://www.google.com/search?q=\(input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input)")!
+    static func formattedURL(from input: String) -> URL? {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains("."), !trimmed.hasPrefix("http://"), !trimmed.hasPrefix("https://") {
+            return URL(string: "https://" + trimmed)
         }
-        if input.hasPrefix("http://") || input.hasPrefix("https://") {
-            return URL(string: input) ?? URL(string: "https://www.google.com/search?q=\(input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input)")!
+        if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
+            return URL(string: trimmed)
         }
-        return URL(string: "https://www.google.com/search?q=\(input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input)")!
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
+        return URL(string: "https://www.google.com/search?q=\(encoded)")
     }
 
     private func hideKeyboard() {
