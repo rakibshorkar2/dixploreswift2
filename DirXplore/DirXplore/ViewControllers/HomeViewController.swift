@@ -196,10 +196,14 @@ final class HomeViewController: UIViewController {
     private func observeKeyboard() {
         keyboardTokens = [
             NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { [weak self] n in
-                self?.keyboardWillShow(n)
+                Task { @MainActor in
+                    self?.keyboardWillShow(n)
+                }
             },
             NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { [weak self] n in
-                self?.keyboardWillHide(n)
+                Task { @MainActor in
+                    self?.keyboardWillHide(n)
+                }
             },
         ]
     }
