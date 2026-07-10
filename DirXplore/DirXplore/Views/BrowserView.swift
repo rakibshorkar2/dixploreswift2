@@ -21,6 +21,17 @@ struct BrowserView: View {
             .sheet(isPresented: $showSheet) {
                 ActivityView(url: model.currentURL)
             }
+            .alert("Download Detected", isPresented: $model.showDownloadConfirmation) {
+                TextField("File Name", text: $model.interceptedFileName)
+                Button("Download") {
+                    model.confirmDownload()
+                }
+                Button("Cancel", role: .cancel) {
+                    model.cancelDownload()
+                }
+            } message: {
+                Text("Would you like to download this file?\n\n\(model.downloadableURLToConfirm?.absoluteString ?? "")")
+            }
         }
     }
 
@@ -143,6 +154,11 @@ final class BrowserViewModel: ObservableObject {
     @Published var canGoForward = false
     fileprivate weak var webView: WKWebView?
 
+    // Download confirmation state
+    @Published var downloadableURLToConfirm: URL?
+    @Published var showDownloadConfirmation = false
+    @Published var interceptedFileName = ""
+
     func load(_ url: URL) {
         webView?.load(URLRequest(url: url))
     }
@@ -150,6 +166,24 @@ final class BrowserViewModel: ObservableObject {
     func goBack() { webView?.goBack() }
     func goForward() { webView?.goForward() }
     func refresh() { webView?.reload() }
+
+    func promptDownload(url: URL) {
+        self.downloadableURLToConfirm = url
+        self.interceptedFileName = url.lastPathComponent.isEmpty ? "downloaded_file" : url.lastPathComponent
+        self.showDownloadConfirmation = true
+    }
+
+    func confirmDownload() {
+        guard let url = downloadableURLToConfirm else { return }
+        DownloadManager.shared.addTask(url: url, fileName: interceptedFileName)
+        self.showDownloadConfirmation = false
+        self.downloadableURLToConfirm = nil
+    }
+
+    func cancelDownload() {
+        self.showDownloadConfirmation = false
+        self.downloadableURLToConfirm = nil
+    }
 }
 
 struct WebView: UIViewRepresentable {
@@ -211,6 +245,36 @@ struct WebView: UIViewRepresentable {
 
         nonisolated func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
             completionHandler(.performDefaultHandling, nil)
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            guard let url = navigationAction.request.url else {
+                decisionHandler(.allow)
+                return
+            }
+
+            let ext = url.pathExtension.lowercased()
+            let downloadExtensions = ["zip", "rar", "7z", "tar", "gz", "mp4", "mkv", "avi", "mp3", "m4a", "wav", "dmg", "pkg", "ipa", "apk", "epub", "pdf"]
+            if downloadExtensions.contains(ext) {
+                Task { @MainActor in
+                    model.promptDownload(url: url)
+                }
+                decisionHandler(.cancel)
+                return
+            }
+
+            decisionHandler(.allow)
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+            if !navigationResponse.canShowMIMEType, let url = navigationResponse.response.url {
+                Task { @MainActor in
+                    model.promptDownload(url: url)
+                }
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
         }
     }
 }

@@ -53,5 +53,20 @@ targets:
       - package: GRDB
       - package: Yams
       - package: KeychainAccess
+      - target: DirXploreWidget
     info:
       path: DirXplore/DirXplore/App/Info.plist
+
+  DirXploreWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DirXplore/DirXploreWidget
+      - path: DirXplore/DirXplore/Models/DownloadActivityAttributes.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dirxplorerakib.pro.widget
+        INFOPLIST_FILE: DirXplore/DirXploreWidget/Info.plist
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO

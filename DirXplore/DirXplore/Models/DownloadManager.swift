@@ -145,6 +145,8 @@ final class DownloadManager: NSObject, ObservableObject {
         tasks[idx].startDate = Date()
         saveTasks()
 
+        LiveActivityManager.shared.startActivity(for: tasks[idx])
+
         let request = URLRequest(url: task.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
         progressTimers[task.id] = Date()
         lastBytes[task.id] = 0
@@ -183,6 +185,8 @@ final class DownloadManager: NSObject, ObservableObject {
                 totalSpeed += tasks[idx].downloadSpeed
                 progressTimers[id] = now
                 lastBytes[id] = currentBytes
+                
+                LiveActivityManager.shared.updateActivity(for: tasks[idx])
             }
         }
         totalDownloadSpeed = totalSpeed
@@ -203,6 +207,8 @@ final class DownloadManager: NSObject, ObservableObject {
 
         tasks[idx].status = .paused
         saveTasks()
+
+        LiveActivityManager.shared.endActivity(for: tasks[idx])
     }
 
     func resumeTask(_ id: UUID) {
@@ -213,6 +219,8 @@ final class DownloadManager: NSObject, ObservableObject {
             tasks[idx].status = .downloading
             tasks[idx].startDate = Date()
             saveTasks()
+
+            LiveActivityManager.shared.startActivity(for: tasks[idx])
 
             progressTimers[id] = Date()
             lastBytes[id] = task.downloadedBytes
@@ -231,6 +239,7 @@ final class DownloadManager: NSObject, ObservableObject {
         if let idx = tasks.firstIndex(where: { $0.id == id }) {
             tasks[idx].status = .cancelled
             saveTasks()
+            LiveActivityManager.shared.endActivity(for: tasks[idx])
         }
     }
 
@@ -238,6 +247,7 @@ final class DownloadManager: NSObject, ObservableObject {
         ongoingDownloads[id]?.cancel()
         cleanupTask(id)
         if let idx = tasks.firstIndex(where: { $0.id == id }) {
+            LiveActivityManager.shared.endActivity(for: tasks[idx])
             let fileURL = documentsDir.appendingPathComponent(tasks[idx].fileName)
             try? FileManager.default.removeItem(at: fileURL)
         }
@@ -366,6 +376,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
                     tasks[idx].fileSize = actualSize
                     tasks[idx].downloadSpeed = 0
                     tasks[idx].completionDate = Date()
+                    
+                    LiveActivityManager.shared.endActivity(for: tasks[idx])
                 }
                 cleanupTask(id)
                 saveTasks()
@@ -375,6 +387,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
                 if let idx = tasks.firstIndex(where: { $0.id == id }) {
                     tasks[idx].status = .failed
                     tasks[idx].errorMessage = error.localizedDescription
+                    
+                    LiveActivityManager.shared.endActivity(for: tasks[idx])
                 }
                 cleanupTask(id)
                 saveTasks()
@@ -394,6 +408,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
                     tasks[idx].fileSize = totalBytesExpectedToWrite
                     tasks[idx].progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
                 }
+                
+                LiveActivityManager.shared.updateActivity(for: tasks[idx])
             }
         }
     }
@@ -412,6 +428,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
             if let idx = tasks.firstIndex(where: { $0.id == id }) {
                 tasks[idx].status = .failed
                 tasks[idx].errorMessage = error.localizedDescription
+                
+                LiveActivityManager.shared.endActivity(for: tasks[idx])
             }
             cleanupTask(id)
             saveTasks()
