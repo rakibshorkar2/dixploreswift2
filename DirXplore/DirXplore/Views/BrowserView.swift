@@ -17,7 +17,7 @@ struct BrowserView: View {
                   let list = try? JSONDecoder().decode([Bookmark].self, from: data) else { return [] }
             return list
         }
-        set {
+        nonmutating set {
             if let data = try? JSONEncoder().encode(newValue),
                let str = String(data: data, encoding: .utf8) {
                 bookmarksJSON = str
@@ -249,7 +249,7 @@ struct BookmarksSheet: View {
                   let list = try? JSONDecoder().decode([Bookmark].self, from: data) else { return [] }
             return list
         }
-        set {
+        nonmutating set {
             if let data = try? JSONEncoder().encode(newValue),
                let str = String(data: data, encoding: .utf8) {
                 bookmarksJSON = str
