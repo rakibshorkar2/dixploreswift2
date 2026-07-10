@@ -35,7 +35,7 @@ final class DownloadManager: NSObject, ObservableObject {
     private let decoder = JSONDecoder()
     private let tasksKey = "saved_download_tasks"
     private let maxConcurrentDownloads = 3
-    private var speedUpdateTimer: Timer?
+    private var speedUpdateTimer: Task<Void, Never>?
 
     private override init() {
         let config = URLSessionConfiguration.default
@@ -48,7 +48,7 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     deinit {
-        speedUpdateTimer?.invalidate()
+        speedUpdateTimer?.cancel()
     }
 
     func setupBackgroundSession() {
@@ -158,10 +158,13 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     private func startSpeedMonitor() {
-        speedUpdateTimer?.invalidate()
-        speedUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateAllSpeeds()
+        speedUpdateTimer?.cancel()
+        speedUpdateTimer = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await MainActor.run { [weak self] in
+                    self?.updateAllSpeeds()
+                }
             }
         }
     }

@@ -191,25 +191,35 @@ final class HomeViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
-    private var keyboardTokens: [NSObjectProtocol] = []
+    private final class ObserverToken: @unchecked Sendable {
+        let token: NSObjectProtocol
+        init(_ token: NSObjectProtocol) { self.token = token }
+        deinit { NotificationCenter.default.removeObserver(token) }
+    }
+
+    private var keyboardTokens: [ObserverToken] = []
 
     private func observeKeyboard() {
-        keyboardTokens = [
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { [weak self] n in
-                Task { @MainActor in
-                    self?.keyboardWillShow(n)
-                }
-            },
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { [weak self] n in
-                Task { @MainActor in
-                    self?.keyboardWillHide(n)
-                }
-            },
-        ]
+        let show = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { [weak self] n in
+            let frame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+            Task { @MainActor in
+                guard let self, let frame else { return }
+                self.scrollView.contentInset.bottom = frame.height - self.view.safeAreaInsets.bottom
+                self.scrollView.verticalScrollIndicatorInsets.bottom = frame.height - self.view.safeAreaInsets.bottom
+            }
+        }
+        let hide = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { [weak self] n in
+            Task { @MainActor in
+                guard let self else { return }
+                self.scrollView.contentInset.bottom = 0
+                self.scrollView.verticalScrollIndicatorInsets.bottom = 0
+            }
+        }
+        keyboardTokens = [ObserverToken(show), ObserverToken(hide)]
     }
 
     deinit {
-        keyboardTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        keyboardTokens = []
     }
 
     @objc private func keyboardWillShow(_ n: Notification) {
