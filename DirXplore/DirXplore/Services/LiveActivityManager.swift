@@ -79,24 +79,20 @@ final class LiveActivityManager {
             formattedTimeRemaining: task.formattedTimeRemaining
         )
 
-        let content = ActivityContent(state: state, staleDate: nil)
         Task {
-            let policy: ActivityDismissalPolicy
-            switch task.status {
-            case .completed:
-                // Keep the completed status visible on lock screen for 5 seconds
-                policy = .after(Date().addingTimeInterval(5))
-            default:
-                policy = .immediate
+            if task.status == .completed {
+                let content = ActivityContent(state: state, staleDate: nil)
+                await activity.end(content)
+            } else {
+                await activity.end()
             }
-            await activity.end(content, dismissalPolicy: policy)
         }
     }
 
     func endAllActivities() {
         for activity in Activity<DownloadActivityAttributes>.activities {
             Task {
-                await activity.end(nil, dismissalPolicy: .immediate)
+                await activity.end()
             }
         }
     }
