@@ -9,7 +9,6 @@ settings:
   base:
     SWIFT_VERSION: "6"
     TARGETED_DEVICE_FAMILY: "1,2"
-    INFOPLIST_FILE: Resources/Info.plist
     PRODUCT_BUNDLE_IDENTIFIER: com.dirxplore
     MARKETING_VERSION: "2.0.0"
     CURRENT_PROJECT_VERSION: "11"
@@ -38,19 +37,11 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: .
-        excludes:
-          - "project.yml"
-          - "Package.swift"
-          - "**/*.md"
-          - ".github/"
-          - "LiveActivity/"
-          - "Widgets/"
-          - "Tests/"
+      - path: DirXplore/DirXplore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dirxplore
-        INFOPLIST_FILE: Resources/Info.plist
+        INFOPLIST_FILE: DirXplore/DirXplore/App/Info.plist
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
@@ -62,53 +53,5 @@ targets:
       - package: GRDB
       - package: Yams
       - package: KeychainAccess
-    preBuildScripts:
-      - name: "Copy bypassempire.yaml"
-        script: |
-          if [ -f "${SRCROOT}/Resources/bypassempire.yaml" ]; then
-            cp "${SRCROOT}/Resources/bypassempire.yaml" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/bypassempire.yaml"
-          fi
     info:
-      path: Resources/Info.plist
-    entitlements:
-      path: DirXplore.entitlements
-
-  DirXploreLiveActivity:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: LiveActivity
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dirxplore.liveactivity
-        INFOPLIST_FILE: LiveActivity/Info.plist
-        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
-    dependencies:
-      - target: DirXplore
-    info:
-      path: LiveActivity/Info.plist
-    entitlements:
-      path: DirXploreLiveActivity.entitlements
-
-  DirXploreWidget:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: Widgets
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dirxplore.widget
-        INFOPLIST_FILE: Widgets/Info.plist
-        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
-    dependencies:
-      - target: DirXplore
-    info:
-      path: Widgets/Info.plist
-
-  DirXploreTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
-      - path: Tests
-    dependencies:
-      - target: DirXplore
+      path: DirXplore/DirXplore/App/Info.plist

@@ -4,6 +4,10 @@ struct DownloadRow: View {
     let task: DownloadTask
     @EnvironmentObject var manager: DownloadManager
 
+    @ScaledMetric private var iconSize: CGFloat = 44
+    @ScaledMetric private var ringSize: CGFloat = 36
+    @ScaledMetric private var iconFontSize: CGFloat = 18
+
     var body: some View {
         HStack(spacing: 14) {
             fileIcon
@@ -16,7 +20,7 @@ struct DownloadRow: View {
             }
             Spacer(minLength: 8)
             ProgressRing(progress: task.progress, color: statusColor)
-                .frame(width: 36, height: 36)
+                .frame(width: ringSize, height: ringSize)
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground))
@@ -31,9 +35,9 @@ struct DownloadRow: View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(statusColor.opacity(0.12))
-                .frame(width: 44, height: 44)
+                .frame(width: iconSize, height: iconSize)
             Image(systemName: statusIcon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: iconFontSize, weight: .semibold))
                 .foregroundStyle(statusColor)
         }
     }

@@ -8,6 +8,10 @@ struct HomeView: View {
     @State private var errorMessage = ""
     @State private var detectedSource: LinkSourceType?
 
+    @ScaledMetric private var iconSize: CGFloat = 48
+    @ScaledMetric private var buttonSize: CGFloat = 44
+    @ScaledMetric private var gridMinWidth: CGFloat = 80
+
     private let resolver = LinkResolver.shared
     @EnvironmentObject var manager: DownloadManager
 
@@ -26,7 +30,7 @@ struct HomeView: View {
                         servicesSection
                         if !recentDownloads.isEmpty { recentSection }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 16)
                 }
             }
@@ -80,7 +84,7 @@ struct HomeView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(Color.blue.opacity(0.1))
-                        .frame(width: 48, height: 48)
+                        .frame(width: iconSize, height: iconSize)
                     Image(systemName: "doc.on.clipboard")
                         .font(.title3)
                         .foregroundStyle(.blue)
@@ -89,8 +93,9 @@ struct HomeView: View {
                     Text("Paste a Link").font(.headline).foregroundStyle(.primary)
                     Text("Google Drive, Dropbox, MEGA, direct URLs...")
                         .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
-                Spacer()
+                Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -101,6 +106,7 @@ struct HomeView: View {
             .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Paste a link from clipboard")
     }
 
     private var urlInputRow: some View {
@@ -141,7 +147,7 @@ struct HomeView: View {
                     }
                 }
                 .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
+                .frame(width: buttonSize, height: buttonSize)
                 .background(Circle().fill(urlText.isEmpty ? Color(.systemGray4) : Color.blue))
             }
             .disabled(urlText.isEmpty || isResolving)
@@ -155,7 +161,7 @@ struct HomeView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(Color.blue.opacity(0.1))
-                        .frame(width: 48, height: 48)
+                        .frame(width: iconSize, height: iconSize)
                     Image(systemName: sourceIcon(for: link.sourceType))
                         .font(.title3)
                         .foregroundStyle(.blue)
@@ -171,7 +177,7 @@ struct HomeView: View {
                         }
                     }
                 }
-                Spacer()
+                Spacer(minLength: 8)
             }
             Button {
                 manager.addTask(url: link.url, fileName: link.fileName, sourceType: link.sourceType)
@@ -199,13 +205,13 @@ struct HomeView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: gridMinWidth))], spacing: 12) {
                 ForEach(LinkSourceType.allCases, id: \.self) { svc in
                     VStack(spacing: 6) {
                         Image(systemName: svc.iconName)
                             .font(.title3)
                             .foregroundStyle(.blue)
-                            .frame(width: 40, height: 40)
+                            .frame(width: iconSize * 0.85, height: iconSize * 0.85)
                             .background(Color.blue.opacity(0.08))
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         Text(svc.rawValue)
@@ -225,7 +231,7 @@ struct HomeView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
-                Spacer()
+                Spacer(minLength: 8)
                 NavigationLink("See All", destination: DownloadsView())
                     .font(.caption.weight(.medium))
             }

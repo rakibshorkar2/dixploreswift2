@@ -4,12 +4,14 @@ struct DownloadDetailView: View {
     let task: DownloadTask
     @EnvironmentObject var manager: DownloadManager
 
+    @ScaledMetric private var ringSize: CGFloat = 80
+
     var body: some View {
         List {
             Section {
                 VStack(spacing: 16) {
                     ProgressRing(progress: task.progress, lineWidth: 8, color: statusColor)
-                        .frame(width: 80, height: 80)
+                        .frame(width: ringSize, height: ringSize)
                         .overlay {
                             if task.status == .downloading {
                                 Text(task.progressPercentage)

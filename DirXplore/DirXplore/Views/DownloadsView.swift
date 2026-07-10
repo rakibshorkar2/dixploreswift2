@@ -7,6 +7,8 @@ struct DownloadsView: View {
     @State private var filterStatus: DownloadStatus?
     @State private var showSearch = false
 
+    @ScaledMetric private var emptyIconSize: CGFloat = 48
+
     enum SortOrder: String, CaseIterable { case recent = "Recent", name = "Name", size = "Size", progress = "Progress" }
 
     private var filteredTasks: [DownloadTask] {
@@ -51,7 +53,6 @@ struct DownloadsView: View {
                                             DownloadRow(task: task)
                                         }
                                         .buttonStyle(.plain)
-                                        .listRowInsets(EdgeInsets())
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
                                         .padding(.vertical, 4)
@@ -59,7 +60,7 @@ struct DownloadsView: View {
                                 } header: {
                                     HStack {
                                         Text(title).font(.footnote.weight(.semibold)).textCase(.uppercase)
-                                        Spacer()
+                                        Spacer(minLength: 8)
                                         Text("\(tasks.count)").font(.caption).foregroundStyle(.secondary)
                                     }
                                 }
@@ -104,7 +105,7 @@ struct DownloadsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "tray")
-                .font(.system(size: 48))
+                .font(.system(size: emptyIconSize))
                 .foregroundStyle(.tertiary)
             Text("No Downloads Yet")
                 .font(.title2.weight(.semibold))
@@ -113,7 +114,9 @@ struct DownloadsView: View {
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

@@ -11,17 +11,23 @@ struct ContentView: View {
                 }
                 .tag(0)
 
-            DownloadsView()
+            BrowserView()
                 .tabItem {
-                    Label("Downloads", systemImage: selectedTab == 1 ? "arrow.down.circle.fill" : "arrow.down.circle")
+                    Label("Browser", systemImage: selectedTab == 1 ? "safari.fill" : "safari")
                 }
                 .tag(1)
 
-            SettingsView()
+            DownloadsView()
                 .tabItem {
-                    Label("Settings", systemImage: selectedTab == 2 ? "gearshape.fill" : "gearshape")
+                    Label("Downloads", systemImage: selectedTab == 2 ? "arrow.down.circle.fill" : "arrow.down.circle")
                 }
                 .tag(2)
+
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: selectedTab == 3 ? "gearshape.fill" : "gearshape")
+                }
+                .tag(3)
         }
         .tint(.blue)
     }
