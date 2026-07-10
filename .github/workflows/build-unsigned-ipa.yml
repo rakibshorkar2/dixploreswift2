@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 env:
-  PROJECT_DIR: DirXplore
+  PROJECT_DIR: .
   SCHEME: DirXplore
   PROJECT_NAME: DirXplore Pro
 
