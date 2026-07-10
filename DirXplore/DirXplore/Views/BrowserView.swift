@@ -162,9 +162,7 @@ struct WebView: UIViewRepresentable {
         wv.navigationDelegate = context.coordinator
         wv.allowsBackForwardNavigationGestures = true
         wv.backgroundColor = .systemBackground
-        wv.addObserver(context.coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: [.new], context: nil)
         model.webView = wv
-        context.coordinator.observedWebView = wv
         return wv
     }
 
@@ -176,16 +174,9 @@ struct WebView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         let model: BrowserViewModel
-        private var observedWebView: WKWebView?
 
         init(model: BrowserViewModel) {
             self.model = model
-        }
-
-        override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-            if keyPath == #keyPath(WKWebView.estimatedProgress), let webView = object as? WKWebView {
-                model.progress = webView.estimatedProgress
-            }
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -220,12 +211,6 @@ struct WebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
             completionHandler(.performDefaultHandling, nil)
-        }
-
-        deinit {
-            if let wv = observedWebView {
-                wv.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-            }
         }
     }
 }

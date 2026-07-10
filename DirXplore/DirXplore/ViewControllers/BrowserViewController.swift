@@ -144,11 +144,13 @@ final class BrowserViewController: UIViewController {
 
     private func observations() {
         observation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, change in
-            guard let self, let progress = change.newValue else { return }
-            self.progressBar.progress = Float(progress)
-            self.progressBar.isHidden = progress >= 1.0
-            self.cancelButton.isHidden = progress >= 1.0
-            self.refreshButton.isHidden = progress < 1.0
+            Task { @MainActor in
+                guard let self, let progress = change.newValue else { return }
+                self.progressBar.progress = Float(progress)
+                self.progressBar.isHidden = progress >= 1.0
+                self.cancelButton.isHidden = progress >= 1.0
+                self.refreshButton.isHidden = progress < 1.0
+            }
         }
     }
 

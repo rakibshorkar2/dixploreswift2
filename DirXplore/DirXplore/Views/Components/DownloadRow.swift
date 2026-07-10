@@ -152,7 +152,7 @@ struct DownloadRow: View {
     }
 }
 
-private final class DocumentInteractionDelegate: NSObject, UIDocumentInteractionControllerDelegate {
+private final class DocumentInteractionDelegate: NSObject, @unchecked Sendable, UIDocumentInteractionControllerDelegate {
     static let shared = DocumentInteractionDelegate()
     func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
