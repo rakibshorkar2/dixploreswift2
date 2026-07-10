@@ -14,7 +14,13 @@ struct DownloadsView: View {
     private var filteredTasks: [DownloadTask] {
         var result = manager.tasks
         if !searchText.isEmpty { result = result.filter { $0.fileName.localizedCaseInsensitiveContains(searchText) } }
-        if let status = filterStatus { result = result.filter { $0.status == status } }
+        if let status = filterStatus {
+            if status == .downloading {
+                result = result.filter { $0.status == .downloading || $0.status == .queued }
+            } else {
+                result = result.filter { $0.status == status }
+            }
+        }
         switch sortOrder {
         case .recent: result.sort { $0.startDate > $1.startDate }
         case .name: result.sort { $0.fileName < $1.fileName }
@@ -41,10 +47,11 @@ struct DownloadsView: View {
         NavigationStack {
             ZStack {
                 Color(.systemGroupedBackground).ignoresSafeArea()
-                Group {
-                    if manager.tasks.isEmpty {
-                        emptyState
-                    } else {
+                if manager.tasks.isEmpty {
+                    emptyState
+                } else {
+                    VStack(spacing: 0) {
+                        filterChipsBar
                         List {
                             ForEach(sections, id: \.0) { title, tasks in
                                 Section {
@@ -118,5 +125,37 @@ struct DownloadsView: View {
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var filterChipsBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                filterChip(title: "All", status: nil)
+                filterChip(title: "Active", status: .downloading)
+                filterChip(title: "Paused", status: .paused)
+                filterChip(title: "Completed", status: .completed)
+                filterChip(title: "Failed", status: .failed)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .background(Color(.secondarySystemGroupedBackground))
+        .overlay(Divider(), alignment: .bottom)
+    }
+
+    private func filterChip(title: String, status: DownloadStatus?) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                filterStatus = status
+            }
+        } label: {
+            Text(title)
+                .font(.subheadline.bold())
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(filterStatus == status ? Color.blue : Color(.systemGray6))
+                .foregroundColor(filterStatus == status ? .white : .primary)
+                .clipShape(Capsule())
+        }
     }
 }

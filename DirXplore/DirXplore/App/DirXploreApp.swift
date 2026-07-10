@@ -4,14 +4,24 @@ import SwiftUI
 struct DirXploreApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var manager = DownloadManager.shared
+    @AppStorage("app_theme") private var appTheme = "System"
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(manager)
+                .preferredColorScheme(colorScheme(for: appTheme))
                 .onAppear {
                     configureAppearance()
                 }
+        }
+    }
+
+    private func colorScheme(for theme: String) -> ColorScheme? {
+        switch theme {
+        case "Light": return .light
+        case "Dark": return .dark
+        default: return nil
         }
     }
 

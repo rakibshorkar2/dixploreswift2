@@ -1,4 +1,5 @@
 import UIKit
+import SwiftUI
 
 extension UIColor {
     static let tintColor = UIColor { traitCollection in
@@ -56,5 +57,25 @@ extension URL {
     var isValidDownloadURL: Bool {
         guard let scheme = scheme?.lowercased() else { return false }
         return scheme == "http" || scheme == "https"
+    }
+}
+
+public enum AccentColorOption: String, CaseIterable, Codable {
+    case blue = "Blue"
+    case purple = "Purple"
+    case pink = "Pink"
+    case orange = "Orange"
+    case green = "Green"
+    case teal = "Teal"
+
+    public var color: Color {
+        switch self {
+        case .blue: return .blue
+        case .purple: return .purple
+        case .pink: return .pink
+        case .orange: return .orange
+        case .green: return .green
+        case .teal: return .teal
+        }
     }
 }

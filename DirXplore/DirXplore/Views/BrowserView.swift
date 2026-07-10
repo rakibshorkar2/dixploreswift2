@@ -6,6 +6,30 @@ struct BrowserView: View {
     @State private var showSheet = false
     @StateObject private var model = BrowserViewModel()
 
+    // Bookmarks and Search Engine states
+    @AppStorage("browser_bookmarks") private var bookmarksJSON = "[]"
+    @AppStorage("search_engine") private var searchEngine = "Google"
+    @State private var showBookmarksSheet = false
+
+    private var bookmarks: [Bookmark] {
+        get {
+            guard let data = bookmarksJSON.data(using: .utf8),
+                  let list = try? JSONDecoder().decode([Bookmark].self, from: data) else { return [] }
+            return list
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue),
+               let str = String(data: data, encoding: .utf8) {
+                bookmarksJSON = str
+            }
+        }
+    }
+
+    private var isCurrentPageBookmarked: Bool {
+        guard let currentURL = model.currentURL else { return false }
+        return bookmarks.contains { $0.urlString == currentURL.absoluteString }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -18,8 +42,47 @@ struct BrowserView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Browser")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HStack(spacing: 6) {
+                        Button {
+                            showBookmarksSheet = true
+                        } label: {
+                            Image(systemName: "star.fill")
+                                .font(.body)
+                        }
+
+                        Menu {
+                            Picker("Search Engine", selection: $searchEngine) {
+                                Text("Google").tag("Google")
+                                Text("DuckDuckGo").tag("DuckDuckGo")
+                                Text("Bing").tag("Bing")
+                                Text("Yahoo").tag("Yahoo")
+                            }
+                        } label: {
+                            Image(systemName: "magnifyingglass.circle")
+                                .font(.body)
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        toggleBookmark()
+                    } label: {
+                        Image(systemName: isCurrentPageBookmarked ? "bookmark.fill" : "bookmark")
+                            .font(.body)
+                    }
+                    .disabled(model.currentURL == nil)
+                }
+            }
             .sheet(isPresented: $showSheet) {
                 ActivityView(url: model.currentURL)
+            }
+            .sheet(isPresented: $showBookmarksSheet) {
+                BookmarksSheet(bookmarksJSON: $bookmarksJSON) { url in
+                    urlString = url.absoluteString
+                    model.load(url)
+                }
             }
             .alert("Download Detected", isPresented: $model.showDownloadConfirmation) {
                 TextField("File Name", text: $model.interceptedFileName)
@@ -122,13 +185,13 @@ struct BrowserView: View {
     private func go() {
         let input = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return }
-        guard let url = Self.formattedURL(from: input) else { return }
+        guard let url = Self.formattedURL(from: input, engine: searchEngine) else { return }
         urlString = url.absoluteString
         model.load(url)
         hideKeyboard()
     }
 
-    static func formattedURL(from input: String) -> URL? {
+    static func formattedURL(from input: String, engine: String) -> URL? {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.contains("."), !trimmed.hasPrefix("http://"), !trimmed.hasPrefix("https://") {
             return URL(string: "https://" + trimmed)
@@ -137,11 +200,120 @@ struct BrowserView: View {
             return URL(string: trimmed)
         }
         let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
-        return URL(string: "https://www.google.com/search?q=\(encoded)")
+        
+        let searchBase: String
+        switch engine {
+        case "DuckDuckGo": searchBase = "https://duckduckgo.com/?q="
+        case "Bing": searchBase = "https://www.bing.com/search?q="
+        case "Yahoo": searchBase = "https://search.yahoo.com/search?p="
+        default: searchBase = "https://www.google.com/search?q="
+        }
+        
+        return URL(string: searchBase + encoded)
+    }
+
+    private func toggleBookmark() {
+        guard let currentURL = model.currentURL else { return }
+        var list = bookmarks
+        let urlStr = currentURL.absoluteString
+
+        if let idx = list.firstIndex(where: { $0.urlString == urlStr }) {
+            list.remove(at: idx)
+        } else {
+            let title = model.webView?.title ?? currentURL.host ?? "Website"
+            let newBookmark = Bookmark(id: UUID(), title: title, urlString: urlStr)
+            list.append(newBookmark)
+        }
+        bookmarks = list
     }
 
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+struct Bookmark: Codable, Identifiable, Hashable {
+    let id: UUID
+    let title: String
+    let urlString: String
+}
+
+struct BookmarksSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var bookmarksJSON: String
+    var onSelect: (URL) -> Void
+
+    private var bookmarks: [Bookmark] {
+        get {
+            guard let data = bookmarksJSON.data(using: .utf8),
+                  let list = try? JSONDecoder().decode([Bookmark].self, from: data) else { return [] }
+            return list
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue),
+               let str = String(data: data, encoding: .utf8) {
+                bookmarksJSON = str
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if bookmarks.isEmpty {
+                    Section {
+                        VStack(spacing: 12) {
+                            Image(systemName: "star")
+                                .font(.system(size: 40))
+                                .foregroundColor(.secondary)
+                            Text("No Bookmarks Yet")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            Text("Tap the bookmark icon when browsing a website to save it here.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                    }
+                    .listRowBackground(Color.clear)
+                } else {
+                    ForEach(bookmarks) { bookmark in
+                        Button {
+                            if let url = URL(string: bookmark.urlString) {
+                                onSelect(url)
+                                dismiss()
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(bookmark.title)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundColor(.primary)
+                                Text(bookmark.urlString)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    .onDelete(perform: deleteBookmark)
+                }
+            }
+            .navigationTitle("Bookmarks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func deleteBookmark(at offsets: IndexSet) {
+        var list = bookmarks
+        list.remove(atOffsets: offsets)
+        bookmarks = list
     }
 }
 

@@ -34,14 +34,19 @@ final class DownloadManager: NSObject, ObservableObject {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let tasksKey = "saved_download_tasks"
-    private let maxConcurrentDownloads = 3
+    
+    var maxConcurrentDownloads: Int {
+        let val = UserDefaults.standard.integer(forKey: "max_concurrent_downloads")
+        return val == 0 ? 3 : val
+    }
+    
     private var speedUpdateTimer: Task<Void, Never>?
 
     private override init() {
         let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
         config.timeoutIntervalForResource = 86400
-        config.httpMaximumConnectionsPerHost = maxConcurrentDownloads
+        config.httpMaximumConnectionsPerHost = 10
         super.init()
         self.foregroundSession = URLSession(configuration: config, delegate: self, delegateQueue: .main)
         loadTasks()

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTab = 0
+    @AppStorage("accent_color") private var accentColorString = "Blue"
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -29,6 +30,6 @@ struct ContentView: View {
                 }
                 .tag(3)
         }
-        .tint(.blue)
+        .tint(AccentColorOption(rawValue: accentColorString)?.color ?? .blue)
     }
 }

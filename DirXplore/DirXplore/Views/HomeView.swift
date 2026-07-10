@@ -7,6 +7,10 @@ struct HomeView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var detectedSource: LinkSourceType?
+    
+    // Clipboard & Batch state
+    @State private var clipboardLink: String?
+    @State private var showBatchSheet = false
 
     @ScaledMetric private var iconSize: CGFloat = 48
     @ScaledMetric private var buttonSize: CGFloat = 44
@@ -24,6 +28,10 @@ struct HomeView: View {
                 Color(.systemGroupedBackground).ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
+                        if let clipLink = clipboardLink {
+                            clipboardBanner(for: clipLink)
+                        }
+                        
                         pasteCard
                         urlInputRow
                         if let link = resolvedLink { previewCard(for: link) }
@@ -39,6 +47,13 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 8) {
+                        Button {
+                            showBatchSheet = true
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                                .font(.body)
+                        }
+
                         storageBadge
                         if activeCount > 0 {
                             HStack(spacing: 4) {
@@ -51,6 +66,16 @@ struct HomeView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showBatchSheet) {
+                BatchDownloadSheet()
+                    .environmentObject(manager)
+            }
+            .onAppear {
+                checkClipboard()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                checkClipboard()
             }
         }
         .background(Color(.systemGroupedBackground))
@@ -280,6 +305,66 @@ struct HomeView: View {
         case .unknown: return "questionmark.circle"
         }
     }
+
+    private func clipboardBanner(for link: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.on.clipboard.fill")
+                .foregroundColor(.blue)
+                .font(.body)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Link in Clipboard").font(.subheadline.bold())
+                Text(link)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            Button("Paste") {
+                urlText = link
+                resolveLink(link)
+                clipboardLink = nil
+            }
+            .font(.caption.bold())
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.blue)
+            .clipShape(Capsule())
+            
+            Button {
+                clipboardLink = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(.separator), lineWidth: 0.5)
+        )
+        .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity), removal: .opacity))
+    }
+
+    private func checkClipboard() {
+        guard let clipboardString = UIPasteboard.general.string,
+              let url = URL(string: clipboardString.trimmingCharacters(in: .whitespacesAndNewlines)),
+              url.isValidDownloadURL else {
+            clipboardLink = nil
+            return
+        }
+        if clipboardString != urlText {
+            withAnimation(.spring()) {
+                clipboardLink = clipboardString
+            }
+        }
+    }
 }
 
 extension LinkSourceType {
@@ -293,5 +378,87 @@ extension LinkSourceType {
         if host.contains("onedrive") || host.contains("1drv") { return .onedrive }
         if host.contains("cloudflarestorage.com") || s.hasSuffix(".zip") || s.hasSuffix(".mp4") || s.hasSuffix(".pdf") { return .direct }
         return .unknown
+    }
+}
+
+struct BatchDownloadSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var manager: DownloadManager
+    @State private var batchText = ""
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text("Paste multiple download URLs below (one URL per line):")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                
+                TextEditor(text: $batchText)
+                    .font(.system(.body, design: .monospaced))
+                    .padding(8)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(.separator), lineWidth: 0.5)
+                    )
+                    .padding(.horizontal)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                
+                Button(action: startBatchDownload) {
+                    Text("Add to Downloads")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(batchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
+                        .cornerRadius(12)
+                }
+                .disabled(batchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .padding(.horizontal)
+                .padding(.bottom)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Batch Download")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .alert("Batch Added", isPresented: $showingAlert) {
+                Button("OK") { dismiss() }
+            } message: {
+                Text(alertMessage)
+            }
+        }
+    }
+
+    private func startBatchDownload() {
+        let lines = batchText.components(separatedBy: .newlines)
+        var urls: [URL] = []
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty,
+               let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let url = URL(string: encoded),
+               url.isValidDownloadURL {
+                urls.append(url)
+            }
+        }
+
+        if urls.isEmpty {
+            alertMessage = "No valid download URLs found. Please check your links."
+            showingAlert = true
+        } else {
+            manager.addBatch(urls: urls)
+            alertMessage = "Successfully added \(urls.count) URLs to the queue!"
+            showingAlert = true
+        }
     }
 }

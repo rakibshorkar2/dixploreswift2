@@ -79,9 +79,10 @@ struct DownloadDetailView: View {
             }
 
             Section("Actions") {
-                actionRow("Open File", icon: "doc.viewfinder", color: .blue) { openFile(task) }
-                actionRow("Share", icon: "square.and.arrow.up", color: .blue) { shareFile(task) }
-                actionRow("Delete", icon: "trash", color: .red, role: .destructive) { manager.removeTask(task.id) }
+                if task.status == .completed {
+                    actionRow("Open File", icon: "doc.viewfinder", color: .blue) { openFile(task) }
+                    actionRow("Share", icon: "square.and.arrow.up", color: .blue) { shareFile(task) }
+                }
                 if task.status == .downloading || task.status == .queued {
                     actionRow("Pause", icon: "pause.circle", color: .orange) { manager.pauseTask(task.id) }
                 }
@@ -91,6 +92,7 @@ struct DownloadDetailView: View {
                 if task.status == .failed {
                     actionRow("Retry", icon: "arrow.clockwise", color: .green) { manager.retryTask(task.id) }
                 }
+                actionRow("Delete", icon: "trash", color: .red, role: .destructive) { manager.removeTask(task.id) }
             }
         }
         .listStyle(.insetGrouped)

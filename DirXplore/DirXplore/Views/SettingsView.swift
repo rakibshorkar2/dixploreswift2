@@ -5,28 +5,10 @@ struct SettingsView: View {
     @State private var cellularEnabled = UserDefaults.standard.bool(forKey: "cellular_downloads")
     @State private var notificationsEnabled = UserDefaults.standard.bool(forKey: "notifications_enabled")
     @State private var wifiOnly = UserDefaults.standard.bool(forKey: "wifi_only")
-    @State private var accentColor: AccentColorOption = .blue
+    @AppStorage("accent_color") private var accentColorString = "Blue"
+    @AppStorage("app_theme") private var appTheme = "System"
+    @State private var maxConcurrent = UserDefaults.standard.integer(forKey: "max_concurrent_downloads") == 0 ? 3 : UserDefaults.standard.integer(forKey: "max_concurrent_downloads")
     @State private var showClearConfirmation = false
-
-    enum AccentColorOption: String, CaseIterable {
-        case blue = "Blue"
-        case purple = "Purple"
-        case pink = "Pink"
-        case orange = "Orange"
-        case green = "Green"
-        case teal = "Teal"
-
-        var color: Color {
-            switch self {
-            case .blue: return .blue
-            case .purple: return .purple
-            case .pink: return .pink
-            case .orange: return .orange
-            case .green: return .green
-            case .teal: return .teal
-            }
-        }
-    }
 
     private var storageString: String {
         let total = manager.tasks.filter { $0.status == .completed }.reduce(0) { $0 + $1.fileSize }
@@ -65,6 +47,13 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         Section("Appearance") {
+            Picker("App Theme", selection: $appTheme) {
+                Text("System").tag("System")
+                Text("Light").tag("Light")
+                Text("Dark").tag("Dark")
+            }
+            .pickerStyle(.menu)
+
             HStack {
                 Label("Accent Color", systemImage: "paintpalette")
                 Spacer()
@@ -75,10 +64,10 @@ struct SettingsView: View {
                             .frame(width: 22, height: 22)
                             .overlay(
                                 Circle()
-                                    .stroke(accentColor == opt ? Color.primary : Color.clear, lineWidth: 2)
+                                    .stroke(accentColorString == opt.rawValue ? Color.primary : Color.clear, lineWidth: 2)
                                     .padding(2)
                             )
-                            .onTapGesture { accentColor = opt }
+                            .onTapGesture { accentColorString = opt.rawValue }
                     }
                 }
             }
@@ -99,11 +88,14 @@ struct SettingsView: View {
             }
             .onChange(of: wifiOnly) { _, v in UserDefaults.standard.set(v, forKey: "wifi_only") }
 
-            HStack {
-                Label("Max Concurrent", systemImage: "arrow.triangle.branch")
-                Spacer()
-                Text("3").foregroundStyle(.secondary)
+            Stepper(value: $maxConcurrent, in: 1...6) {
+                HStack {
+                    Label("Max Concurrent", systemImage: "arrow.triangle.branch")
+                    Spacer()
+                    Text("\(maxConcurrent)").foregroundStyle(.secondary)
+                }
             }
+            .onChange(of: maxConcurrent) { _, v in UserDefaults.standard.set(v, forKey: "max_concurrent_downloads") }
         }
     }
 
